@@ -54,11 +54,10 @@ import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
 import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
 import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
 import productSheet from './assets/optimized/product-sheet.webp'
-import mantaMascot from './assets/optimized/manta-ray.png'
 import reefFishAqua from './assets/optimized/reef-fish-aqua.png'
 import reefFishCoral from './assets/optimized/reef-fish-coral.png'
 import reefFishSun from './assets/optimized/reef-fish-sun.png'
-import turtleMascot from './assets/optimized/sea-turtle.png'
+import turtleMascot from './assets/generated/sea-turtle-topdown-v2.webp'
 import {
   catalogProducts,
   matchProductIdFromFileName,
@@ -237,7 +236,8 @@ const studioPixelRatioCap = 1
 const studioTextLineHeight = 50
 const studioTextSize = 40
 const studioAttractorLifetime = 8400
-const studioActorPadding = 46
+const studioActorPadding = 88
+const studioActorBottomPadding = 170
 const acceptedDropFilmTypes = ['video/mp4', 'video/webm', 'video/quicktime']
 const acceptedProductMediaTypes = [
   'image/jpeg',
@@ -331,6 +331,10 @@ const studioBrushes: StudioBrush[] = [
     voice: 'Turtle Stamp pressed a soft shell mark.',
   },
 ]
+
+function studioCreatureDisplaySize(brush: StudioBrush) {
+  return brush.size * (brush.stamp === 'turtle' ? 2.05 : brush.stamp === 'snail' ? 1.24 : 1.2)
+}
 
 const ambientBubbles = Array.from({ length: 18 }, (_, index) => ({
   id: index,
@@ -1268,11 +1272,15 @@ function clampStudioValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+function studioActorMaxY(bounds: StudioBounds) {
+  return Math.max(studioActorPadding, bounds.height - studioActorBottomPadding)
+}
+
 function studioPointInBounds(bounds: StudioBounds, x: number, y: number): StudioPoint {
   return {
     time: performance.now(),
     x: clampStudioValue(x, studioActorPadding, Math.max(studioActorPadding, bounds.width - studioActorPadding)),
-    y: clampStudioValue(y, studioActorPadding, Math.max(studioActorPadding, bounds.height - studioActorPadding)),
+    y: clampStudioValue(y, studioActorPadding, studioActorMaxY(bounds)),
   }
 }
 
@@ -1715,7 +1723,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
     }
 
     const speed = Math.hypot(actor.vx, actor.vy)
-    const size = actor.brush.size * (actor.brush.stamp === 'turtle' ? 1.42 : actor.brush.stamp === 'snail' ? 1.24 : 1.2)
+    const size = studioCreatureDisplaySize(actor.brush)
     const bob = Math.sin(now * 0.006 + actor.phase) * (actor.brush.stamp === 'crab' ? 2.4 : actor.brush.stamp === 'turtle' ? 1.2 : 0.55)
     const crawlSquash = actor.brush.stamp === 'crab'
       ? 1 + Math.sin(actor.step * 1.7) * 0.035
@@ -1727,7 +1735,18 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
       ? clampStudioValue(actor.vy / Math.max(speed, 1) * 0.18, -0.18, 0.18)
       : 0
 
-    node.style.transform = `translate3d(${actor.x - size / 2}px, ${actor.y - size / 2 + bob}px, 0) rotate(${tilt}rad) scale(${actor.facing * crawlSquash}, ${verticalScale})`
+    const rotation = actor.brush.stamp === 'turtle' ? actor.direction : tilt
+    const turtleBreath = actor.brush.stamp === 'turtle'
+      ? 1 + Math.sin(now * 0.0034 + actor.phase) * 0.012
+      : 1
+    const horizontalScale = actor.brush.stamp === 'turtle'
+      ? turtleBreath
+      : actor.facing * crawlSquash
+    const resolvedVerticalScale = actor.brush.stamp === 'turtle'
+      ? 2 - turtleBreath
+      : verticalScale
+
+    node.style.transform = `translate3d(${actor.x - size / 2}px, ${actor.y - size / 2 + bob}px, 0) rotate(${rotation}rad) scale(${horizontalScale}, ${resolvedVerticalScale})`
   }
 
   const updateStudioActors = (bounds: StudioBounds, now: number, delta: number) => {
@@ -1753,7 +1772,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
         actor.targetY = clampStudioValue(
           currentAttractor.y + Math.sin(orbit) * (16 + index * 7),
           studioActorPadding,
-          Math.max(studioActorPadding, bounds.height - studioActorPadding),
+          studioActorMaxY(bounds),
         )
       } else if (now > actor.nextWanderAt) {
         moveActorToWanderTarget(actor, bounds, now, index)
@@ -1775,7 +1794,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
       actor.vx += (desiredVx - actor.vx) * follow
       actor.vy += (desiredVy - actor.vy) * follow
       actor.x = clampStudioValue(actor.x + actor.vx * delta, studioActorPadding, Math.max(studioActorPadding, bounds.width - studioActorPadding))
-      actor.y = clampStudioValue(actor.y + actor.vy * delta, studioActorPadding, Math.max(studioActorPadding, bounds.height - studioActorPadding))
+      actor.y = clampStudioValue(actor.y + actor.vy * delta, studioActorPadding, studioActorMaxY(bounds))
 
       const speed = Math.hypot(actor.vx, actor.vy)
 
@@ -1831,7 +1850,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
       actor.targetY = clampStudioValue(
         safePoint.y + Math.sin(angle) * (18 + index * 6),
         studioActorPadding,
-        Math.max(studioActorPadding, bounds.height - studioActorPadding),
+        studioActorMaxY(bounds),
       )
       actor.nextWanderAt = now + studioAttractorLifetime
     })
@@ -2061,7 +2080,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
                   style={
                     {
                       '--studio-creature-glow': brush.creatureGlow,
-                      '--studio-creature-size': `${brush.size * (brush.stamp === 'turtle' ? 1.42 : brush.stamp === 'snail' ? 1.24 : 1.2)}px`,
+                      '--studio-creature-size': `${studioCreatureDisplaySize(brush)}px`,
                     } as CSSProperties
                   }
                 >
@@ -4692,9 +4711,6 @@ function App() {
             </span>
             <span className="footer-swimmer footer-swimmer-three is-reverse">
               <img alt="" decoding="async" loading="lazy" src={reefFishSun} />
-            </span>
-            <span className="footer-swimmer footer-swimmer-four is-reverse">
-              <img alt="" decoding="async" loading="lazy" src={mantaMascot} />
             </span>
             <span className="footer-swimmer footer-swimmer-five">
               <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />

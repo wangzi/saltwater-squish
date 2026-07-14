@@ -919,7 +919,8 @@
 }
 
 .studio-creature-turtle img {
-  animation: studioTurtlePaddle 2.4s ease-in-out infinite;
+  transform-origin: 50% 52%;
+  animation: studioTurtlePaddle 2.8s ease-in-out infinite;
 }
 
 .studio-creature-snail img {
@@ -2687,11 +2688,11 @@ button.film-play-badge {
 @keyframes studioTurtlePaddle {
   0%,
   100% {
-    transform: translateY(0) rotate(-1.2deg);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 
   50% {
-    transform: translateY(-1px) rotate(1.2deg);
+    transform: translate3d(1px, -2px, 0) scale(1.025, 0.985);
   }
 }
 
@@ -3371,7 +3372,21 @@ button.film-play-badge {
 }
 
 .studio-creature img {
-  filter: drop-shadow(0 9px 9px rgba(70, 55, 39, 0.16));
+  filter:
+    drop-shadow(0 8px 6px rgba(70, 55, 39, 0.18))
+    drop-shadow(0 16px 16px rgba(70, 55, 39, 0.12));
+}
+
+.studio-creature-turtle::before {
+  position: absolute;
+  inset: 24% 25% 27%;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.32), transparent 46%);
+  filter: blur(3px);
+  mix-blend-mode: screen;
+  content: "";
 }
 
 .studio-panel {
@@ -3640,13 +3655,6 @@ button.film-play-badge {
   width: 66px;
   animation-duration: 23s;
   animation-delay: -9s;
-}
-
-.footer-swimmer-four {
-  top: 196px;
-  width: 82px;
-  animation-duration: 31s;
-  animation-delay: -22s;
 }
 
 .footer-swimmer-five {
@@ -4148,10 +4156,6 @@ button.film-play-badge {
 
   .footer-swimmer-three {
     top: 112px;
-  }
-
-  .footer-swimmer-four {
-    top: 92px;
   }
 
   .footer-swimmer-five {
