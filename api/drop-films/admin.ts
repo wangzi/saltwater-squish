@@ -14,7 +14,7 @@ type ApiResponse = {
   status: (code: number) => ApiResponse
 }
 
-const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD ?? 'saltwater-sand-30'
+const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD?.trim()
 
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
@@ -37,7 +37,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     (): { password?: string } => ({}),
   )
 
-  if (body.password !== dropFilmAdminPassword) {
+  if (!dropFilmAdminPassword || body.password !== dropFilmAdminPassword) {
     return response.status(401).json({ error: 'Unauthorized' })
   }
 

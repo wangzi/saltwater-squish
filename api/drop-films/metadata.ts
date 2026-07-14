@@ -23,7 +23,7 @@ type MetadataRequestBody = {
   title?: string
 }
 
-const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD ?? 'saltwater-sand-30'
+const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD?.trim()
 
 function headerValue(request: ApiRequest, name: string) {
   const value = request.headers[name.toLowerCase()]
@@ -31,7 +31,8 @@ function headerValue(request: ApiRequest, name: string) {
 }
 
 function isAuthorized(request: ApiRequest) {
-  return headerValue(request, 'x-drop-admin-password') === dropFilmAdminPassword
+  return Boolean(dropFilmAdminPassword)
+    && headerValue(request, 'x-drop-admin-password') === dropFilmAdminPassword
 }
 
 function cleanTitle(value: unknown) {

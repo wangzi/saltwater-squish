@@ -18,7 +18,7 @@ type ApiResponse = {
   status: (code: number) => ApiResponse
 }
 
-const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD ?? 'saltwater-sand-30'
+const dropFilmAdminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD?.trim()
 const maxDropFilmBytes = 150 * 1024 * 1024
 const allowedContentTypes = ['video/mp4', 'video/webm', 'video/quicktime']
 
@@ -33,7 +33,8 @@ function headerValue(request: ApiRequest, name: string) {
 }
 
 function isAuthorized(request: ApiRequest) {
-  return headerValue(request, 'x-drop-admin-password') === dropFilmAdminPassword
+  return Boolean(dropFilmAdminPassword)
+    && headerValue(request, 'x-drop-admin-password') === dropFilmAdminPassword
 }
 
 function cleanTitle(value: unknown) {

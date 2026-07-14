@@ -24,7 +24,7 @@ type ProductMediaPayload = {
   title?: string
 }
 
-const adminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD ?? 'saltwater-sand-30'
+const adminPassword = process.env.DROP_FILMS_ADMIN_PASSWORD?.trim()
 const maxProductMediaBytes = 150 * 1024 * 1024
 const allowedContentTypes = [
   'image/jpeg',
@@ -42,7 +42,8 @@ function headerValue(request: ApiRequest, name: string) {
 }
 
 function isAuthorized(request: ApiRequest) {
-  return headerValue(request, 'x-drop-admin-password') === adminPassword
+  return Boolean(adminPassword)
+    && headerValue(request, 'x-drop-admin-password') === adminPassword
 }
 
 function cleanText(value: unknown, fallback: string) {
