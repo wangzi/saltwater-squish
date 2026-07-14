@@ -45,8 +45,8 @@ import {
   type PointerEvent,
 } from 'react'
 import './App.css'
+import OceanAtollEnvironment from './OceanAtollEnvironment'
 import brandMark from './assets/brand/saltwater-squish-mark.png'
-import heroImage from './assets/optimized/hero-beach-squish.jpg'
 import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
 import productSheet from './assets/optimized/product-sheet.jpg'
 import mantaMascot from './assets/optimized/manta-ray.png'
@@ -300,16 +300,6 @@ const studioBrushes: StudioBrush[] = [
     voice: 'Turtle Stamp pressed a soft shell mark.',
   },
 ]
-
-const ambientBubbles = Array.from({ length: 18 }, (_, index) => ({
-  id: index,
-  x: (index * 37 + 12) % 100,
-  y: (index * 53 + 8) % 100,
-  size: 18 + ((index * 17) % 68),
-  delay: -1 * ((index * 11) % 24),
-  duration: 16 + ((index * 7) % 18),
-  depth: 0.35 + ((index * 13) % 55) / 100,
-}))
 
 const currency = new Intl.NumberFormat('en-US', {
   currency: 'USD',
@@ -751,38 +741,6 @@ function ProductMediaGallery({
           ))}
         </div>
       ) : null}
-    </div>
-  )
-}
-
-function OceanBubbleField({
-  pointer,
-  reducedMotion,
-}: {
-  pointer: { x: number; y: number }
-  reducedMotion: boolean
-}) {
-  return (
-    <div aria-hidden="true" className="ocean-bubble-field">
-      {ambientBubbles.map((bubble) => {
-        const dx = bubble.x - pointer.x
-        const dy = bubble.y - pointer.y
-        const distance = Math.max(Math.hypot(dx, dy), 1)
-        const influence = reducedMotion ? 0 : Math.max(0, 18 - distance) * bubble.depth
-        const repelX = (dx / distance) * influence
-        const repelY = (dy / distance) * influence
-        const style = {
-          '--bubble-delay': `${bubble.delay}s`,
-          '--bubble-duration': `${bubble.duration}s`,
-          '--bubble-size': `${bubble.size}px`,
-          '--bubble-x': `${bubble.x}%`,
-          '--bubble-y': `${bubble.y}%`,
-          '--repel-x': `${repelX}px`,
-          '--repel-y': `${repelY}px`,
-        } as CSSProperties
-
-        return <span className="foam-bubble" key={bubble.id} style={style} />
-      })}
     </div>
   )
 }
@@ -3727,12 +3685,8 @@ function App() {
   const [openPolicy, setOpenPolicy] = useState<PolicyKind | null>(null)
   const [splashes, setSplashes] = useState<Splash[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
-  const [pointer, setPointer] = useState({ x: 50, y: 45 })
   const [liveMessage, setLiveMessage] = useState('')
   const cartButtonRef = useRef<HTMLButtonElement | null>(null)
-  const pointerFrameRef = useRef<number | null>(null)
-  const shorelineFrameRef = useRef<number | null>(null)
-  const pendingPointerRef = useRef({ x: 50, y: 45 })
   const reducedMotion = usePrefersReducedMotion()
   const isAdminRoute = hashRoute === '#admin' || hashRoute === '#films-admin'
 
@@ -3880,85 +3834,6 @@ function App() {
 
     return () => window.cancelAnimationFrame(frame)
   }, [hashRoute])
-
-  useEffect(() => {
-    return () => {
-      if (pointerFrameRef.current !== null) {
-        window.cancelAnimationFrame(pointerFrameRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isAdminRoute || reducedMotion) {
-      return
-    }
-
-    const siteShell = document.querySelector<HTMLElement>('.site-shell')
-    const shorelines = document.querySelectorAll<HTMLElement>('[data-shoreline]')
-    const parallaxProperties = [
-      '--hero-photo-parallax',
-      '--hero-tint-parallax',
-      '--hero-content-parallax',
-      '--tide-rise-slow',
-      '--tide-rise-deep',
-    ]
-
-    const updateShorelineParallax = () => {
-      shorelineFrameRef.current = null
-      const viewportCenter = window.innerHeight / 2
-      const scrollY = window.scrollY
-      const heroTravel = Math.min(window.innerHeight, Math.max(0, scrollY))
-      const isCompactViewport = window.innerWidth <= 720
-      const tideRiseSlow = Math.sin(scrollY * 0.003) * 18
-      const tideRiseDeep = Math.cos(scrollY * 0.0024) * 26
-      const heroPhotoShift = Math.min(isCompactViewport ? 22 : 36, heroTravel * (isCompactViewport ? 0.032 : 0.044)) * -1
-      const heroContentShift = heroTravel * (isCompactViewport ? -0.019 : -0.032)
-
-      siteShell?.style.setProperty('--hero-photo-parallax', `${heroPhotoShift.toFixed(1)}px`)
-      siteShell?.style.setProperty('--hero-tint-parallax', `${(heroPhotoShift * 0.45).toFixed(1)}px`)
-      siteShell?.style.setProperty('--hero-content-parallax', `${heroContentShift.toFixed(1)}px`)
-      siteShell?.style.setProperty('--tide-rise-slow', `${tideRiseSlow.toFixed(1)}px`)
-      siteShell?.style.setProperty('--tide-rise-deep', `${tideRiseDeep.toFixed(1)}px`)
-
-      shorelines.forEach((shoreline, index) => {
-        const bounds = shoreline.getBoundingClientRect()
-        const centerDelta = bounds.top + bounds.height / 2 - viewportCenter
-        const offset = Math.max(-22, Math.min(22, centerDelta * -0.044))
-
-        shoreline.style.setProperty('--shore-parallax', `${offset.toFixed(1)}px`)
-        shoreline.style.setProperty('--shore-phase', `${(index * -1.65).toFixed(2)}s`)
-      })
-    }
-
-    const scheduleShorelineParallax = () => {
-      if (shorelineFrameRef.current !== null) {
-        return
-      }
-
-      shorelineFrameRef.current = window.requestAnimationFrame(updateShorelineParallax)
-    }
-
-    scheduleShorelineParallax()
-    window.addEventListener('resize', scheduleShorelineParallax)
-    window.addEventListener('scroll', scheduleShorelineParallax, { passive: true })
-
-    return () => {
-      window.removeEventListener('resize', scheduleShorelineParallax)
-      window.removeEventListener('scroll', scheduleShorelineParallax)
-
-      if (shorelineFrameRef.current !== null) {
-        window.cancelAnimationFrame(shorelineFrameRef.current)
-        shorelineFrameRef.current = null
-      }
-
-      parallaxProperties.forEach((property) => siteShell?.style.removeProperty(property))
-      shorelines.forEach((shoreline) => {
-        shoreline.style.removeProperty('--shore-parallax')
-        shoreline.style.removeProperty('--shore-phase')
-      })
-    }
-  }, [isAdminRoute, reducedMotion])
 
   const storefrontProducts = useMemo(
     () => products
@@ -4135,32 +4010,6 @@ function App() {
     }
   }
 
-  const handleShellPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (reducedMotion) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-
-    if (target.closest('[data-no-splash]')) {
-      return
-    }
-
-    pendingPointerRef.current = {
-      x: (event.clientX / window.innerWidth) * 100,
-      y: (event.clientY / window.innerHeight) * 100,
-    }
-
-    if (pointerFrameRef.current !== null) {
-      return
-    }
-
-    pointerFrameRef.current = window.requestAnimationFrame(() => {
-      pointerFrameRef.current = null
-      setPointer(pendingPointerRef.current)
-    })
-  }
-
   const handleShellPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (reducedMotion || event.button !== 0) {
       return
@@ -4192,21 +4041,10 @@ function App() {
 
   return (
     <div
-      className="site-shell"
+      className={`site-shell ${isAdminRoute ? 'is-admin-shell' : 'is-atoll-shell'}`}
       onPointerDown={handleShellPointerDown}
-      onPointerMove={handleShellPointerMove}
     >
-      <OceanBubbleField pointer={pointer} reducedMotion={reducedMotion} />
-      <div aria-hidden="true" className="painted-tide-scene">
-        <span className="painted-wash painted-wash-hero" />
-        <span className="painted-wash painted-wash-shop" />
-        <span className="painted-wash painted-wash-bundle" />
-        <span className="painted-wash painted-wash-films" />
-        <span className="painted-wash painted-wash-studio" />
-        <span className="painted-stroke painted-stroke-one" />
-        <span className="painted-stroke painted-stroke-two" />
-        <span className="painted-stroke painted-stroke-three" />
-      </div>
+      {!isAdminRoute ? <OceanAtollEnvironment reducedMotion={reducedMotion} /> : null}
 
       <div aria-hidden="true" className="splash-layer">
         {splashes.map((splash) => (
@@ -4347,17 +4185,6 @@ function App() {
         ) : (
           <>
         <section className="hero-section">
-          <img
-            alt="Coastal squishy toys on pale sand beside shallow turquoise water."
-            className="hero-photo"
-            decoding="async"
-            fetchPriority="high"
-            height="810"
-            loading="eager"
-            src={heroImage}
-            width="1440"
-          />
-          <div className="hero-tint" />
           <div aria-hidden="true" className="hero-story-lines">
             <span>Half Moon Bay</span>
             <span>California coast</span>
@@ -4387,12 +4214,6 @@ function App() {
             </div>
           </div>
         </section>
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-water-sand"
-          data-shoreline
-        />
 
         <section
           className="shop-section"
@@ -4466,21 +4287,9 @@ function App() {
           </div>
         </section>
 
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-sand-water"
-          data-shoreline
-        />
-
         <DropFilmsSection films={dropFilms} products={storefrontProducts} status={dropFilmsStatus} />
 
         <AboutSection />
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-studio shoreline-bridge-water-sand"
-          data-shoreline
-        />
           </>
         )}
       </main>
