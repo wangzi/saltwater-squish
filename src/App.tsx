@@ -4644,6 +4644,10 @@ function App() {
                 (product.shopifyVariantId && product.availableForSale === false)
                 ? 'Sold out'
                 : 'Add to cart'
+              const inventoryCopy = typeof product.inventoryQuantity === 'number' &&
+                product.inventoryQuantity > 0
+                ? `only ${Math.floor(product.inventoryQuantity)} left`
+                : null
 
               return (
                 <article className="product-card" key={product.id}>
@@ -4656,14 +4660,19 @@ function App() {
                     </div>
                     <h3>{product.name}</h3>
                     <button
-                      aria-label={`Add ${product.name} to cart`}
+                      aria-label={`${buttonLabel}: ${product.name}${inventoryCopy ? `, ${inventoryCopy}` : ''}`}
                       className="button product-button"
                       disabled={!isPurchasable}
                       onClick={(event) => addToCart(product, event)}
                       type="button"
                     >
-                      <Plus size={17} />
-                      {buttonLabel}
+                      <span className="product-button-action">
+                        <Plus size={17} />
+                        {buttonLabel}
+                      </span>
+                      {isPurchasable && inventoryCopy ? (
+                        <span className="product-button-inventory">{inventoryCopy}</span>
+                      ) : null}
                     </button>
                   </div>
                 </article>
