@@ -3593,7 +3593,7 @@ function AboutSection() {
           <div className="about-intro">
             <p>
               We're two friends who bonded over the beach, making art, and squishies. Ira is five,
-              Joni is fifteen, and between us there's almost always something being squished.
+              Joni is eleven, and between us there's almost always something being squished.
             </p>
             <p>
               We handpick our favorites, from slow-rise and crunchy to slushy and sugar-coated.
