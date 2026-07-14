@@ -596,18 +596,25 @@ function usePrefersReducedMotion() {
 }
 
 function ProductVisual({
+  autoPlay = false,
   controls = false,
+  loop = false,
   media,
+  poster,
   product,
   className = '',
   style,
 }: {
+  autoPlay?: boolean
   controls?: boolean
+  loop?: boolean
   media?: ProductMedia
+  poster?: string
   product: Product
   className?: string
   style?: CSSProperties
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
   const hasMedia = Boolean(media?.url)
   const productStyle = hasMedia
     ? style
@@ -616,6 +623,22 @@ function ProductVisual({
     backgroundImage: `url(${productSheet})`,
     backgroundPosition: `${product.imagePosition[0]}% ${product.imagePosition[1]}%`,
   }
+
+  useEffect(() => {
+    const video = videoRef.current
+
+    if (!video) {
+      return
+    }
+
+    if (autoPlay) {
+      void video.play().catch(() => {})
+      return
+    }
+
+    video.pause()
+    video.currentTime = 0
+  }, [autoPlay, media?.url])
 
   return (
     <span
@@ -629,10 +652,14 @@ function ProductVisual({
       ) : null}
       {media?.kind === 'video' ? (
         <video
+          autoPlay={autoPlay}
           controls={controls}
+          loop={loop}
           muted
           playsInline
-          preload={controls ? 'metadata' : 'none'}
+          poster={poster}
+          preload={controls || autoPlay ? 'metadata' : 'none'}
+          ref={videoRef}
           src={media.url}
         />
       ) : null}
@@ -648,8 +675,27 @@ function ProductMediaGallery({
   product: Product
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const activeMedia = media[activeIndex]
+  const [isHoverPreviewing, setIsHoverPreviewing] = useState(false)
   const leadImage = media.find((item) => item.kind === 'image')
+  const firstVideoIndex = media.findIndex((item) => item.kind === 'video')
+  const displayedIndex = isHoverPreviewing && firstVideoIndex >= 0
+    ? firstVideoIndex
+    : activeIndex
+  const activeMedia = media[displayedIndex]
+
+  const startHoverPreview = () => {
+    if (
+      firstVideoIndex < 0 ||
+      !window.matchMedia('(hover: hover) and (pointer: fine)').matches ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return
+    }
+
+    setIsHoverPreviewing(true)
+  }
+
+  const stopHoverPreview = () => setIsHoverPreviewing(false)
 
   useEffect(() => {
     if (activeIndex >= media.length) {
@@ -663,7 +709,28 @@ function ProductMediaGallery({
 
   return (
     <div className="product-media-gallery">
-      <ProductVisual controls className="product-media-main" media={activeMedia} product={product} />
+      <div
+        className="product-media-hover-target"
+        data-has-video={firstVideoIndex >= 0}
+        data-hover-playing={isHoverPreviewing}
+        onMouseEnter={startHoverPreview}
+        onMouseLeave={stopHoverPreview}
+      >
+        <ProductVisual
+          autoPlay={isHoverPreviewing}
+          controls={!isHoverPreviewing}
+          loop={isHoverPreviewing}
+          className="product-media-main"
+          media={activeMedia}
+          poster={leadImage?.url}
+          product={product}
+        />
+        {firstVideoIndex >= 0 && !isHoverPreviewing ? (
+          <span aria-hidden="true" className="product-hover-video-cue">
+            <Play size={15} />
+          </span>
+        ) : null}
+      </div>
       {media.length > 1 ? (
         <div className="product-media-strip" aria-label={`${product.name} media`}>
           {media.map((item, index) => (
@@ -672,7 +739,10 @@ function ProductMediaGallery({
               aria-pressed={activeIndex === index}
               className="product-media-thumb"
               key={item.id}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => {
+                setIsHoverPreviewing(false)
+                setActiveIndex(index)
+              }}
               type="button"
             >
               <ProductVisual media={item.kind === 'video' ? leadImage ?? item : item} product={product} />

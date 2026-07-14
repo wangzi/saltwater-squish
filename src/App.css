@@ -1260,6 +1260,74 @@
   min-width: 0;
 }
 
+.product-media-hover-target {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.product-media-hover-target[data-has-video="true"] {
+  cursor: pointer;
+}
+
+.product-media-hover-target[data-hover-playing="true"] .product-visual {
+  animation: product-video-reveal 220ms ease-out both;
+}
+
+.product-media-hover-target[data-hover-playing="true"] .product-visual::after {
+  display: none;
+}
+
+.product-hover-video-cue {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 999px;
+  color: rgba(82, 70, 82, 0.9);
+  background: rgba(255, 247, 242, 0.82);
+  box-shadow: 0 8px 22px rgba(82, 70, 82, 0.16);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease;
+}
+
+.product-media-hover-target:hover .product-hover-video-cue {
+  opacity: 0;
+  transform: scale(0.82);
+}
+
+@keyframes product-video-reveal {
+  from {
+    opacity: 0.76;
+    transform: scale(1.015);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .product-hover-video-cue {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-media-hover-target[data-hover-playing="true"] .product-visual {
+    animation: none;
+  }
+}
+
 .product-media-main video {
   cursor: auto;
 }
@@ -2958,6 +3026,10 @@
   }
 
   .product-media-gallery {
+    width: 100%;
+  }
+
+  .product-media-hover-target {
     width: 100%;
   }
 
