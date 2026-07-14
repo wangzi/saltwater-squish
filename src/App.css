@@ -1322,6 +1322,12 @@
   }
 }
 
+@media (max-width: 720px) {
+  .product-hover-video-cue {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .product-media-hover-target[data-hover-playing="true"] .product-visual {
     animation: none;
