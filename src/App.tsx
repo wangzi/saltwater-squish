@@ -45,12 +45,16 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
+  type RefObject,
 } from 'react'
 import './App.css'
 import brandMark from './assets/brand/saltwater-squish-mark.png'
 import heroImage from './assets/optimized/hero-beach-squish.jpg'
+import heroImageAvif from './assets/optimized/hero-beach-squish.avif'
+import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
 import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
-import productSheet from './assets/optimized/product-sheet.jpg'
+import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
+import productSheet from './assets/optimized/product-sheet.webp'
 import mantaMascot from './assets/optimized/manta-ray.png'
 import reefFishAqua from './assets/optimized/reef-fish-aqua.png'
 import reefFishCoral from './assets/optimized/reef-fish-coral.png'
@@ -70,6 +74,14 @@ type Product = CatalogProduct
 
 type ProductMediaKind = 'image' | 'video'
 
+type ProductImageVariant = {
+  contentType: 'image/webp'
+  height?: number
+  size: number
+  url: string
+  width: number
+}
+
 type ProductMedia = {
   contentType?: string
   downloadUrl?: string
@@ -83,6 +95,7 @@ type ProductMedia = {
   title?: string
   uploadedAt?: string
   url: string
+  variants?: ProductImageVariant[]
 }
 
 type ProductMediaByProduct = Record<string, ProductMedia[]>
@@ -617,6 +630,7 @@ function usePrefersReducedMotion() {
 function ProductVisual({
   autoPlay = false,
   controls = false,
+  imageSizes = '(max-width: 720px) calc(100vw - 36px), (max-width: 1120px) 50vw, 33vw',
   loop = false,
   media,
   poster,
@@ -626,6 +640,7 @@ function ProductVisual({
 }: {
   autoPlay?: boolean
   controls?: boolean
+  imageSizes?: string
   loop?: boolean
   media?: ProductMedia
   poster?: string
@@ -635,6 +650,14 @@ function ProductVisual({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hasMedia = Boolean(media?.url)
+  const imageVariants = media?.kind === 'image'
+    ? [...(media.variants ?? [])].sort((left, right) => left.width - right.width)
+    : []
+  const largestImageVariant = imageVariants.at(-1)
+  const imageSource = largestImageVariant?.url ?? media?.url
+  const imageSrcSet = imageVariants.length > 0
+    ? imageVariants.map((variant) => `${variant.url} ${variant.width}w`).join(', ')
+    : undefined
   const productStyle = hasMedia
     ? style
     : {
@@ -667,7 +690,17 @@ function ProductVisual({
       style={productStyle}
     >
       {media?.kind === 'image' ? (
-        <img alt="" decoding="async" loading="lazy" src={media.url} />
+        <img
+          alt=""
+          decoding="async"
+          fetchPriority="low"
+          height={largestImageVariant?.height}
+          loading="lazy"
+          sizes={imageSrcSet ? imageSizes : undefined}
+          src={imageSource}
+          srcSet={imageSrcSet}
+          width={largestImageVariant?.width}
+        />
       ) : null}
       {media?.kind === 'video' ? (
         <video
@@ -679,7 +712,7 @@ function ProductVisual({
           poster={poster}
           preload={controls || autoPlay ? 'metadata' : 'none'}
           ref={videoRef}
-          src={media.url}
+          src={controls || autoPlay ? media.url : undefined}
         />
       ) : null}
     </span>
@@ -741,6 +774,7 @@ function ProductMediaGallery({
           loop={isHoverPreviewing}
           className="product-media-main"
           media={activeMedia}
+          imageSizes="(max-width: 720px) calc(100vw - 36px), (max-width: 1120px) 50vw, 33vw"
           poster={leadImage?.url}
           product={product}
         />
@@ -764,7 +798,11 @@ function ProductMediaGallery({
               }}
               type="button"
             >
-              <ProductVisual media={item.kind === 'video' ? leadImage ?? item : item} product={product} />
+              <ProductVisual
+                imageSizes="96px"
+                media={item.kind === 'video' ? leadImage ?? item : item}
+                product={product}
+              />
               {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
             </button>
           ))}
@@ -774,30 +812,18 @@ function ProductMediaGallery({
   )
 }
 
-function OceanBubbleField({
-  pointer,
-  reducedMotion,
-}: {
-  pointer: { x: number; y: number }
-  reducedMotion: boolean
-}) {
+function OceanBubbleField({ fieldRef }: { fieldRef: RefObject<HTMLDivElement | null> }) {
   return (
-    <div aria-hidden="true" className="ocean-bubble-field">
+    <div aria-hidden="true" className="ocean-bubble-field" ref={fieldRef}>
       {ambientBubbles.map((bubble) => {
-        const dx = bubble.x - pointer.x
-        const dy = bubble.y - pointer.y
-        const distance = Math.max(Math.hypot(dx, dy), 1)
-        const influence = reducedMotion ? 0 : Math.max(0, 18 - distance) * bubble.depth
-        const repelX = (dx / distance) * influence
-        const repelY = (dy / distance) * influence
         const style = {
           '--bubble-delay': `${bubble.delay}s`,
           '--bubble-duration': `${bubble.duration}s`,
           '--bubble-size': `${bubble.size}px`,
           '--bubble-x': `${bubble.x}%`,
           '--bubble-y': `${bubble.y}%`,
-          '--repel-x': `${repelX}px`,
-          '--repel-y': `${repelY}px`,
+          '--repel-x': '0px',
+          '--repel-y': '0px',
         } as CSSProperties
 
         return <span className="foam-bubble" key={bubble.id} style={style} />
@@ -1988,7 +2014,6 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
     <section
       className={`studio-section studio-game-section ${isFullscreen ? 'is-studio-fullscreen' : ''}`}
       data-no-splash
-      id="studio"
       aria-labelledby="studio-title"
       ref={studioSectionRef}
     >
@@ -2041,7 +2066,7 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
                     } as CSSProperties
                   }
                 >
-                  <img alt="" src={brush.creatureImage} />
+                  <img alt="" decoding="async" loading="lazy" src={brush.creatureImage} />
                 </div>
               ))}
             </div>
@@ -2092,6 +2117,50 @@ function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
   )
 }
 
+function DeferredStudio({ reducedMotion }: { reducedMotion: boolean }) {
+  const [shouldMount, setShouldMount] = useState(
+    () => typeof window !== 'undefined' && window.location.hash === '#studio',
+  )
+  const placeholderRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (shouldMount) {
+      return
+    }
+
+    const placeholder = placeholderRef.current
+
+    if (!placeholder || !('IntersectionObserver' in window)) {
+      setShouldMount(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldMount(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '900px 0px' },
+    )
+
+    observer.observe(placeholder)
+
+    return () => observer.disconnect()
+  }, [shouldMount])
+
+  return (
+    <div
+      className={`studio-deferred ${shouldMount ? 'is-mounted' : ''}`}
+      id="studio"
+      ref={placeholderRef}
+    >
+      {shouldMount ? <SplashStudio reducedMotion={reducedMotion} /> : null}
+    </div>
+  )
+}
+
 function DropFilmsSection({
   films,
   products,
@@ -2102,6 +2171,7 @@ function DropFilmsSection({
   status: 'idle' | 'loading' | 'ready' | 'error'
 }) {
   const [activeFilmIndex, setActiveFilmIndex] = useState(0)
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null)
   const carouselRef = useRef<HTMLDivElement | null>(null)
   const dragStartXRef = useRef<number | null>(null)
   const dragDeltaXRef = useRef(0)
@@ -2118,6 +2188,7 @@ function DropFilmsSection({
 
   useEffect(() => {
     setActiveFilmIndex((current) => films.length === 0 ? 0 : Math.min(current, films.length - 1))
+    setActiveVideoId(null)
   }, [films.length])
 
   useEffect(() => {
@@ -2133,6 +2204,7 @@ function DropFilmsSection({
       return
     }
 
+    setActiveVideoId(null)
     setActiveFilmIndex((current) => (
       direction === 'forward'
         ? (current + 1) % films.length
@@ -2299,6 +2371,7 @@ function DropFilmsSection({
           const filmProduct = products[index % products.length] ?? catalogProducts[0]
           const filmDepth = Math.abs(relativeIndex)
           const isActive = relativeIndex === 0
+          const isVideoActive = Boolean(film.url && isActive && activeVideoId === film.id)
           const storySummary = film.source === 'uploaded'
             ? 'Fresh from the latest drop, ready to preview.'
             : filmStorySummaries[index % filmStorySummaries.length]
@@ -2329,16 +2402,19 @@ function DropFilmsSection({
                 }
 
                 if (!isActive && Math.abs(relativeIndex) <= 2) {
+                  setActiveVideoId(null)
                   setActiveFilmIndex(index)
+                } else if (isActive && film.url) {
+                  setActiveVideoId(film.id)
                 }
               }}
               style={filmPositionStyle}
             >
               <div
                 className="film-card-media"
-                onMouseEnter={(event) => {
-                  if (isActive) {
-                    void event.currentTarget.querySelector('video')?.play().catch(() => {})
+                onMouseEnter={() => {
+                  if (isActive && film.url) {
+                    setActiveVideoId(film.id)
                   }
                 }}
                 onMouseLeave={(event) => {
@@ -2346,26 +2422,39 @@ function DropFilmsSection({
                 }}
               >
                 <div
-                  aria-hidden={Boolean(film.url && isActive)}
-                  aria-label={film.url && isActive ? undefined : film.title}
+                  aria-hidden={isVideoActive}
+                  aria-label={isVideoActive ? undefined : film.title}
                   className="film-thumb"
-                  role={film.url && isActive ? undefined : 'img'}
+                  role={isVideoActive ? undefined : 'img'}
                 >
                   <ProductVisual className="film-thumb-visual" product={filmProduct} />
-                  {!film.url || !isActive ? (
+                  {film.url && isActive && !isVideoActive ? (
+                    <button
+                      aria-label={`Play ${film.title}`}
+                      className="film-play-badge"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setActiveVideoId(film.id)
+                      }}
+                      type="button"
+                    >
+                      <Play size={20} />
+                    </button>
+                  ) : !film.url || !isActive ? (
                     <span className="film-play-badge">
                       <Play size={20} />
                     </span>
                   ) : null}
                 </div>
-                {film.url && isActive ? (
+                {isVideoActive ? (
                   <video
                     aria-label={film.title}
+                    autoPlay
                     controls
                     loop
                     muted
                     playsInline
-                    preload="metadata"
+                    preload="none"
                     src={film.url}
                     tabIndex={0}
                   />
@@ -3454,14 +3543,17 @@ function AboutSection() {
       <div className="about-section-inner">
         <figure className="about-keepsake">
           <div className="about-photo-frame">
-            <img
-              alt="Ira and Joni standing with bodyboards on the beach in Half Moon Bay."
-              decoding="async"
-              height="1183"
-              loading="lazy"
-              src={aboutBeachPhoto}
-              width="692"
-            />
+            <picture>
+              <source srcSet={aboutBeachPhotoWebp} type="image/webp" />
+              <img
+                alt="Ira and Joni standing with bodyboards on the beach in Half Moon Bay."
+                decoding="async"
+                height="1183"
+                loading="lazy"
+                src={aboutBeachPhoto}
+                width="692"
+              />
+            </picture>
             <span aria-hidden="true" className="about-frame-shell">
               <Shell size={22} strokeWidth={1.8} />
             </span>
@@ -3747,9 +3839,10 @@ function App() {
   const [openPolicy, setOpenPolicy] = useState<PolicyKind | null>(null)
   const [splashes, setSplashes] = useState<Splash[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
-  const [pointer, setPointer] = useState({ x: 50, y: 45 })
   const [liveMessage, setLiveMessage] = useState('')
   const cartButtonRef = useRef<HTMLButtonElement | null>(null)
+  const bubbleFieldRef = useRef<HTMLDivElement | null>(null)
+  const bubbleNodesRef = useRef<HTMLElement[]>([])
   const pointerFrameRef = useRef<number | null>(null)
   const shorelineFrameRef = useRef<number | null>(null)
   const pendingPointerRef = useRef({ x: 50, y: 45 })
@@ -3768,7 +3861,9 @@ function App() {
     setDropFilmsStatus('loading')
 
     try {
-      const response = await fetch('/api/drop-films', {
+      const endpoint = isAdminRoute ? `/api/drop-films?v=${Date.now()}` : '/api/drop-films'
+      const response = await fetch(endpoint, {
+        cache: isAdminRoute ? 'no-store' : 'default',
         headers: { accept: 'application/json' },
       })
 
@@ -3783,13 +3878,15 @@ function App() {
       setDropFilms(placeholderDropFilms)
       setDropFilmsStatus('error')
     }
-  }, [])
+  }, [isAdminRoute])
 
   const loadProductMedia = useCallback(async () => {
     setProductMediaStatus('loading')
 
     try {
-      const response = await fetch('/api/product-media', {
+      const endpoint = isAdminRoute ? `/api/product-media?v=${Date.now()}` : '/api/product-media'
+      const response = await fetch(endpoint, {
+        cache: isAdminRoute ? 'no-store' : 'default',
         headers: { accept: 'application/json' },
       })
 
@@ -3799,14 +3896,37 @@ function App() {
 
       const data = (await response.json()) as ProductMediaResponse
       setProductMediaByProduct(normalizeProductMedia(data))
-      setProducts(normalizeCatalogProducts(data))
+      const normalizedProducts = normalizeCatalogProducts(data)
+      setProducts((currentProducts) =>
+        normalizedProducts.map((product) => {
+          const currentProduct = currentProducts.find((item) => item.id === product.id)
+
+          if (!currentProduct?.shopifyVariantId) {
+            return product
+          }
+
+          return {
+            ...product,
+            availableForSale: currentProduct.availableForSale,
+            currencyCode: currentProduct.currencyCode,
+            price: currentProduct.price,
+            shopifyHandle: currentProduct.shopifyHandle,
+            shopifyProductId: currentProduct.shopifyProductId,
+            shopifyVariantId: currentProduct.shopifyVariantId,
+          }
+        }),
+      )
       setProductMediaStatus('ready')
     } catch {
       setProductMediaByProduct({})
-      setProducts(catalogProducts)
+      setProducts((currentProducts) =>
+        currentProducts.some((product) => product.shopifyVariantId)
+          ? currentProducts
+          : catalogProducts,
+      )
       setProductMediaStatus('error')
     }
-  }, [])
+  }, [isAdminRoute])
 
   const loadShopifyCatalog = useCallback(async () => {
     setShopifyStatus('loading')
@@ -3862,11 +3982,7 @@ function App() {
 
   useEffect(() => {
     const loadStorefrontMedia = () => {
-      void loadDropFilms()
-      void (async () => {
-        await loadProductMedia()
-        await loadShopifyCatalog()
-      })()
+      void Promise.all([loadDropFilms(), loadProductMedia(), loadShopifyCatalog()])
     }
 
     if (isAdminRoute) {
@@ -3918,7 +4034,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (isAdminRoute || reducedMotion) {
+    if (isAdminRoute || reducedMotion || window.matchMedia('(max-width: 720px)').matches) {
       return
     }
 
@@ -3937,11 +4053,16 @@ function App() {
       const viewportCenter = window.innerHeight / 2
       const scrollY = window.scrollY
       const heroTravel = Math.min(window.innerHeight, Math.max(0, scrollY))
-      const isCompactViewport = window.innerWidth <= 720
       const tideRiseSlow = Math.sin(scrollY * 0.003) * 18
       const tideRiseDeep = Math.cos(scrollY * 0.0024) * 26
-      const heroPhotoShift = Math.min(isCompactViewport ? 22 : 36, heroTravel * (isCompactViewport ? 0.032 : 0.044)) * -1
-      const heroContentShift = heroTravel * (isCompactViewport ? -0.019 : -0.032)
+      const heroPhotoShift = Math.min(36, heroTravel * 0.044) * -1
+      const heroContentShift = heroTravel * -0.032
+      const shorelineOffsets = Array.from(shorelines, (shoreline) => {
+        const bounds = shoreline.getBoundingClientRect()
+        const centerDelta = bounds.top + bounds.height / 2 - viewportCenter
+
+        return Math.max(-22, Math.min(22, centerDelta * -0.044))
+      })
 
       siteShell?.style.setProperty('--hero-photo-parallax', `${heroPhotoShift.toFixed(1)}px`)
       siteShell?.style.setProperty('--hero-tint-parallax', `${(heroPhotoShift * 0.45).toFixed(1)}px`)
@@ -3950,12 +4071,7 @@ function App() {
       siteShell?.style.setProperty('--tide-rise-deep', `${tideRiseDeep.toFixed(1)}px`)
 
       shorelines.forEach((shoreline, index) => {
-        const bounds = shoreline.getBoundingClientRect()
-        const centerDelta = bounds.top + bounds.height / 2 - viewportCenter
-        const offset = Math.max(-22, Math.min(22, centerDelta * -0.044))
-
-        shoreline.style.setProperty('--shore-parallax', `${offset.toFixed(1)}px`)
-        shoreline.style.setProperty('--shore-phase', `${(index * -1.65).toFixed(2)}s`)
+        shoreline.style.setProperty('--shore-parallax', `${shorelineOffsets[index].toFixed(1)}px`)
       })
     }
 
@@ -3967,6 +4083,9 @@ function App() {
       shorelineFrameRef.current = window.requestAnimationFrame(updateShorelineParallax)
     }
 
+    shorelines.forEach((shoreline, index) => {
+      shoreline.style.setProperty('--shore-phase', `${(index * -1.65).toFixed(2)}s`)
+    })
     scheduleShorelineParallax()
     window.addEventListener('resize', scheduleShorelineParallax)
     window.addEventListener('scroll', scheduleShorelineParallax, { passive: true })
@@ -4185,7 +4304,29 @@ function App() {
 
     pointerFrameRef.current = window.requestAnimationFrame(() => {
       pointerFrameRef.current = null
-      setPointer(pendingPointerRef.current)
+      const pointer = pendingPointerRef.current
+
+      if (bubbleNodesRef.current.length === 0) {
+        bubbleNodesRef.current = Array.from(
+          bubbleFieldRef.current?.querySelectorAll<HTMLElement>('.foam-bubble') ?? [],
+        )
+      }
+
+      bubbleNodesRef.current.forEach((node, index) => {
+        const bubble = ambientBubbles[index]
+
+        if (!bubble) {
+          return
+        }
+
+        const dx = bubble.x - pointer.x
+        const dy = bubble.y - pointer.y
+        const distance = Math.max(Math.hypot(dx, dy), 1)
+        const influence = Math.max(0, 18 - distance) * bubble.depth
+
+        node.style.setProperty('--repel-x', `${((dx / distance) * influence).toFixed(1)}px`)
+        node.style.setProperty('--repel-y', `${((dy / distance) * influence).toFixed(1)}px`)
+      })
     })
   }
 
@@ -4224,7 +4365,7 @@ function App() {
       onPointerDown={handleShellPointerDown}
       onPointerMove={handleShellPointerMove}
     >
-      <OceanBubbleField pointer={pointer} reducedMotion={reducedMotion} />
+      <OceanBubbleField fieldRef={bubbleFieldRef} />
       <div aria-hidden="true" className="painted-tide-scene">
         <span className="painted-wash painted-wash-hero" />
         <span className="painted-wash painted-wash-shop" />
@@ -4391,16 +4532,20 @@ function App() {
         ) : (
           <>
         <section className="hero-section">
-          <img
-            alt="Coastal squishy toys on pale sand beside shallow turquoise water."
-            className="hero-photo"
-            decoding="async"
-            fetchPriority="high"
-            height="810"
-            loading="eager"
-            src={heroImage}
-            width="1440"
-          />
+          <picture>
+            <source srcSet={heroImageAvif} type="image/avif" />
+            <source srcSet={heroImageWebp} type="image/webp" />
+            <img
+              alt="Coastal squishy toys on pale sand beside shallow turquoise water."
+              className="hero-photo"
+              decoding="async"
+              fetchPriority="high"
+              height="810"
+              loading="eager"
+              src={heroImage}
+              width="1440"
+            />
+          </picture>
           <div className="hero-tint" />
           <div aria-hidden="true" className="hero-story-lines">
             <span>Half Moon Bay</span>
@@ -4530,7 +4675,7 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        {!isAdminRoute ? <SplashStudio reducedMotion={reducedMotion} /> : null}
+        {!isAdminRoute ? <DeferredStudio reducedMotion={reducedMotion} /> : null}
         <div className="footer-bar">
           <div aria-hidden="true" className="footer-ocean-scene">
             <span className="footer-wave footer-wave-back" />
@@ -4542,19 +4687,19 @@ function App() {
             <span className="footer-bubble footer-bubble-five" />
             <span className="footer-bubble footer-bubble-six" />
             <span className="footer-swimmer footer-swimmer-one">
-              <img alt="" src={reefFishCoral} />
+              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
             </span>
             <span className="footer-swimmer footer-swimmer-two">
-              <img alt="" src={reefFishAqua} />
+              <img alt="" decoding="async" loading="lazy" src={reefFishAqua} />
             </span>
             <span className="footer-swimmer footer-swimmer-three is-reverse">
-              <img alt="" src={reefFishSun} />
+              <img alt="" decoding="async" loading="lazy" src={reefFishSun} />
             </span>
             <span className="footer-swimmer footer-swimmer-four is-reverse">
-              <img alt="" src={mantaMascot} />
+              <img alt="" decoding="async" loading="lazy" src={mantaMascot} />
             </span>
             <span className="footer-swimmer footer-swimmer-five">
-              <img alt="" src={reefFishCoral} />
+              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
             </span>
           </div>
           <div className="footer-signoff">

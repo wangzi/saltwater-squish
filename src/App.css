@@ -1706,11 +1706,17 @@
   width: 54px;
   height: 54px;
   place-items: center;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: rgba(255, 253, 247, 0.76);
   box-shadow: 0 12px 30px rgba(54, 50, 44, 0.12);
   color: rgba(54, 50, 44, 0.82);
   transform: translate(-50%, -50%);
+}
+
+button.film-play-badge {
+  cursor: pointer;
 }
 
 .film-play-badge svg {
@@ -2407,7 +2413,7 @@
   box-shadow: none;
   filter: blur(3px) saturate(0.95);
   opacity: 0.26;
-  transform: translate(var(--repel-x), var(--repel-y));
+  transform: translate3d(var(--repel-x), var(--repel-y), 0);
   animation: tide-drift var(--bubble-duration) ease-in-out infinite;
   animation-delay: var(--bubble-delay);
 }
@@ -2622,16 +2628,21 @@
 @keyframes tide-drift {
   0%,
   100% {
-    margin-top: 0;
-    margin-left: 0;
+    transform: translate3d(var(--repel-x), var(--repel-y), 0);
   }
   35% {
-    margin-top: -18px;
-    margin-left: 12px;
+    transform: translate3d(
+      calc(var(--repel-x) + 12px),
+      calc(var(--repel-y) - 18px),
+      0
+    );
   }
   70% {
-    margin-top: 10px;
-    margin-left: -10px;
+    transform: translate3d(
+      calc(var(--repel-x) - 10px),
+      calc(var(--repel-y) + 10px),
+      0
+    );
   }
 }
 
@@ -3472,6 +3483,10 @@
   background: transparent;
 }
 
+.studio-deferred {
+  min-height: 820px;
+}
+
 .site-footer::before,
 .site-footer::after {
   display: none;
@@ -4027,6 +4042,10 @@
 @media (max-width: 720px) {
   .site-footer {
     margin-top: -54px;
+  }
+
+  .studio-deferred {
+    min-height: 650px;
   }
 
   .site-footer .studio-section {
@@ -5110,19 +5129,6 @@
 .hero-content h1 .kinetic-letter,
 .about-hero-copy h1 .kinetic-letter {
   color: var(--kinetic-color);
-  animation-name: kinetic-tide-letter, kinetic-letter-color;
-  animation-duration: 5.8s, 15s;
-  animation-timing-function: ease-in-out, ease-in-out;
-  animation-iteration-count: infinite, infinite;
-  animation-delay: var(--kinetic-delay), var(--kinetic-delay);
-}
-
-.hero-content h1 .kinetic-line:nth-child(even) .kinetic-letter,
-.hero-content h1 .kinetic-word:nth-child(even) .kinetic-letter,
-.about-hero-copy h1 .kinetic-line:nth-child(even) .kinetic-letter,
-.about-hero-copy h1 .kinetic-word:nth-child(even) .kinetic-letter {
-  animation-name: kinetic-sand-settle, kinetic-letter-color;
-  animation-duration: 6.6s, 15s;
 }
 
 .hero-content h1 .kinetic-text::after,
@@ -6086,7 +6092,7 @@
 .shoreline-bridge::before {
   position: absolute;
   inset: -40px 0;
-  background-image: url("./assets/generated/aerial-shoreline-transition.jpg");
+  background-image: url("./assets/generated/aerial-shoreline-transition.webp");
   background-position: center 50%;
   background-repeat: no-repeat;
   background-size: cover;

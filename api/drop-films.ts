@@ -2,6 +2,7 @@ import { list, type ListBlobResultBlob } from '@vercel/blob'
 
 type ApiResponse = {
   json: (body: unknown) => void
+  setHeader: (name: string, value: string) => void
   status: (code: number) => ApiResponse
 }
 
@@ -55,6 +56,8 @@ async function readMetadata(url: string) {
 }
 
 export default async function handler(_request: unknown, response: ApiResponse) {
+  response.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+
   try {
     const [filmResult, metadataResult] = await Promise.all([
       list({ limit: 100, prefix: 'drop-films/' }),

@@ -1,4 +1,8 @@
 import { list, put, type PutBlobResult } from '@vercel/blob'
+import {
+  createProductImageVariants,
+  type ProductImageVariant,
+} from '../../server/product-images.js'
 
 declare const process: {
   env: {
@@ -65,6 +69,7 @@ type ProductMediaAsset = {
   title?: string
   uploadedAt?: string
   url: string
+  variants?: ProductImageVariant[]
 }
 
 type ProductMediaMetadata = {
@@ -271,6 +276,13 @@ export default async function handler(request: ApiRequest, response: ApiResponse
 
     const kind: ProductMediaKind = incomingAsset.kind === 'video' ? 'video' : 'image'
     const title = cleanTitle(incomingAsset.title)
+    const variants = kind === 'image' && isProductUpload
+      ? await createProductImageVariants({ pathname, productId, sourceUrl: url }).catch((error) => {
+          console.warn('Product image optimization failed', error)
+          return []
+        })
+      : undefined
+
     uploadedAssets.push({
       contentType: incomingAsset.contentType,
       downloadUrl: incomingAsset.blob?.downloadUrl,
@@ -287,6 +299,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       title,
       uploadedAt: now,
       url,
+      variants,
     })
   }
 
