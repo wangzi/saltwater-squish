@@ -8,7 +8,6 @@ import {
   FishSymbol,
   Heart,
   Lock,
-  MapPin,
   Maximize2,
   Menu,
   Minimize2,
@@ -24,14 +23,12 @@ import {
   ShoppingBag,
   ShieldCheck,
   Sparkles,
-  Sun,
   Trash2,
   TriangleAlert,
   Turtle,
   Upload,
   Waves,
   X,
-  MoonStar,
 } from 'lucide-react'
 import { type PutBlobResult } from '@vercel/blob'
 import {
@@ -50,10 +47,6 @@ import {
 } from 'react'
 import './App.css'
 import brandMark from './assets/optimized/saltwater-squish-mark.webp?no-inline'
-import heroImage from './assets/optimized/hero-beach-squish.jpg'
-import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
-import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
-import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
 import productSheet from './assets/optimized/product-sheet.webp'
 import blueDaddyShark from './assets/generated/blue-daddy-shark.webp'
 import pinkShark from './assets/generated/pink-shark.webp'
@@ -1478,708 +1471,6 @@ function drawCreatureTrail(
     },
     actor.brush,
     velocity,
-  )
-}
-
-function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isPaused, setIsPaused] = useState(reducedMotion)
-  const [studioVoice, setStudioVoice] = useState('The sea turtle is exploring the shore.')
-  const [attractor, setAttractor] = useState<StudioAttractor | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const shimmerCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const canvasBoundsRef = useRef<StudioBounds | null>(null)
-  const frameRef = useRef<number | null>(null)
-  const actorNodesRef = useRef<Record<string, HTMLDivElement | null>>({})
-  const actorsRef = useRef<StudioCreatureActor[]>([])
-  const attractorRef = useRef<StudioAttractor | null>(null)
-  const isPausedRef = useRef(isPaused)
-  const isStudioVisibleRef = useRef(true)
-  const lastFrameAtRef = useRef(0)
-  const lastShimmerFadeAtRef = useRef(0)
-  const studioSectionRef = useRef<HTMLElement | null>(null)
-  const textCursorRef = useRef<StudioPoint | null>(null)
-  const textStampsRef = useRef<TextStamp[]>([])
-
-  useEffect(() => {
-    isPausedRef.current = isPaused
-  }, [isPaused])
-
-  useEffect(() => {
-    attractorRef.current = attractor
-  }, [attractor])
-
-  useEffect(() => {
-    const syncFullscreenState = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
-      window.setTimeout(refreshCanvasBounds, 80)
-    }
-
-    document.addEventListener('fullscreenchange', syncFullscreenState)
-
-    return () => document.removeEventListener('fullscreenchange', syncFullscreenState)
-  }, [])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const shimmerCanvas = shimmerCanvasRef.current
-    let resizeFrame: number | null = null
-    let previousHeight = 0
-    let previousWidth = 0
-
-    const handleResize = () => {
-      if (resizeFrame !== null) {
-        window.cancelAnimationFrame(resizeFrame)
-      }
-
-      resizeFrame = window.requestAnimationFrame(() => {
-        const bounds = refreshCanvasBounds()
-
-        if (!bounds) {
-          return
-        }
-
-        const materiallyResized = Math.abs(bounds.width - previousWidth) > 2 || Math.abs(bounds.height - previousHeight) > 2
-
-        if (!materiallyResized) {
-          return
-        }
-
-        previousHeight = bounds.height
-        previousWidth = bounds.width
-        clearStudioSurface(canvas, shimmerCanvas)
-        actorsRef.current = createStudioActors(bounds)
-        textCursorRef.current = null
-      })
-    }
-
-    clearStudioSurface(canvas, shimmerCanvas)
-    const bounds = refreshCanvasBounds()
-
-    if (bounds) {
-      previousHeight = bounds.height
-      previousWidth = bounds.width
-      actorsRef.current = createStudioActors(bounds)
-    }
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(handleResize)
-
-    if (canvas && resizeObserver) {
-      resizeObserver.observe(canvas)
-    } else {
-      window.addEventListener('resize', handleResize)
-    }
-
-    return () => {
-      resizeObserver?.disconnect()
-      window.removeEventListener('resize', handleResize)
-
-      if (resizeFrame !== null) {
-        window.cancelAnimationFrame(resizeFrame)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    const section = studioSectionRef.current
-
-    if (!section || typeof IntersectionObserver === 'undefined') {
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const isVisible = Boolean(entry?.isIntersecting)
-        isStudioVisibleRef.current = isVisible
-
-        if (isVisible) {
-          lastFrameAtRef.current = performance.now()
-        }
-      },
-      { rootMargin: '160px 0px' },
-    )
-
-    observer.observe(section)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        isPausedRef.current = true
-        setIsPaused(true)
-      }
-    }
-
-    const animateStudio = (now: number) => {
-      if (!isStudioVisibleRef.current) {
-        lastFrameAtRef.current = now
-        frameRef.current = window.requestAnimationFrame(animateStudio)
-        return
-      }
-
-      const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-      if (!bounds) {
-        frameRef.current = window.requestAnimationFrame(animateStudio)
-        return
-      }
-
-      if (actorsRef.current.length === 0) {
-        actorsRef.current = createStudioActors(bounds, now)
-      }
-
-      const elapsed = lastFrameAtRef.current ? now - lastFrameAtRef.current : 16
-      const delta = clampStudioValue(elapsed / 1000, 0.001, 0.05)
-      lastFrameAtRef.current = now
-
-      if (!isPausedRef.current) {
-        updateStudioActors(bounds, now, delta)
-      }
-
-      actorsRef.current.forEach((actor) => updateActorNode(actor, now))
-      frameRef.current = window.requestAnimationFrame(animateStudio)
-    }
-
-    frameRef.current = window.requestAnimationFrame(animateStudio)
-    window.addEventListener('blur', handleVisibilityChange)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('blur', handleVisibilityChange)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current)
-      }
-    }
-    // The game loop reads mutable refs so it can stay stable without restarting on every render.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const refreshCanvasBounds = () => {
-    const canvas = canvasRef.current
-
-    if (!canvas) {
-      return null
-    }
-
-    const rect = canvas.getBoundingClientRect()
-    const bounds = {
-      height: rect.height,
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-    }
-
-    canvasBoundsRef.current = bounds
-    return bounds
-  }
-
-  const defaultTextCursor = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return {
-        time: performance.now(),
-        x: 40,
-        y: 120,
-      }
-    }
-
-    return {
-      time: performance.now(),
-      x: Math.max(28, bounds.width * 0.12),
-      y: Math.max(54, bounds.height * 0.22),
-    }
-  }
-
-  const keepTextCursorInBounds = (point: StudioPoint) => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return point
-    }
-
-    return {
-      ...point,
-      x: Math.min(Math.max(24, point.x), Math.max(24, bounds.width - 48)),
-      y: Math.min(Math.max(24, point.y), Math.max(24, bounds.height - studioTextLineHeight - 20)),
-    }
-  }
-
-  const setCreatureNode = (id: string) => (node: HTMLDivElement | null) => {
-    actorNodesRef.current[id] = node
-  }
-
-  const moveActorToWanderTarget = (actor: StudioCreatureActor, bounds: StudioBounds, now: number, index: number) => {
-    const target = makeStudioTarget(bounds, index, now + Math.random() * 2200)
-    actor.targetX = target.x
-    actor.targetY = target.y
-    actor.nextWanderAt = now + 2600 + Math.random() * 2600 + index * 320
-  }
-
-  const updateActorNode = (actor: StudioCreatureActor, now: number) => {
-    const node = actorNodesRef.current[actor.id]
-
-    if (!node) {
-      return
-    }
-
-    const speed = Math.hypot(actor.vx, actor.vy)
-    const size = studioCreatureDisplaySize(actor.brush)
-    const bob = Math.sin(now * 0.006 + actor.phase) * (actor.brush.stamp === 'crab' ? 2.4 : actor.brush.stamp === 'turtle' ? 1.2 : 0.55)
-    const crawlSquash = actor.brush.stamp === 'crab'
-      ? 1 + Math.sin(actor.step * 1.7) * 0.035
-      : actor.brush.stamp === 'snail'
-        ? 1 + Math.sin(actor.step * 1.15) * 0.018
-        : 1
-    const verticalScale = 2 - crawlSquash
-    const tilt = speed > 1
-      ? clampStudioValue(actor.vy / Math.max(speed, 1) * 0.18, -0.18, 0.18)
-      : 0
-
-    const rotation = actor.brush.stamp === 'turtle' ? actor.direction : tilt
-    const turtleBreath = actor.brush.stamp === 'turtle'
-      ? 1 + Math.sin(now * 0.0034 + actor.phase) * 0.012
-      : 1
-    const horizontalScale = actor.brush.stamp === 'turtle'
-      ? turtleBreath
-      : actor.facing * crawlSquash
-    const resolvedVerticalScale = actor.brush.stamp === 'turtle'
-      ? 2 - turtleBreath
-      : verticalScale
-
-    node.style.transform = `translate3d(${actor.x - size / 2}px, ${actor.y - size / 2 + bob}px, 0) rotate(${rotation}rad) scale(${horizontalScale}, ${resolvedVerticalScale})`
-  }
-
-  const updateStudioActors = (bounds: StudioBounds, now: number, delta: number) => {
-    const canvas = canvasRef.current
-    const shimmerCanvas = shimmerCanvasRef.current
-    const currentAttractor = attractorRef.current
-    const isAttracted = currentAttractor && now - currentAttractor.time < studioAttractorLifetime
-    const motionScale = reducedMotion ? 0.58 : 1
-
-    if (currentAttractor && !isAttracted) {
-      attractorRef.current = null
-      setAttractor(null)
-    }
-
-    actorsRef.current.forEach((actor, index) => {
-      if (isAttracted && currentAttractor) {
-        const orbit = actor.phase * 2.1 + index
-        actor.targetX = clampStudioValue(
-          currentAttractor.x + Math.cos(orbit) * (18 + index * 8),
-          studioActorPadding,
-          Math.max(studioActorPadding, bounds.width - studioActorPadding),
-        )
-        actor.targetY = clampStudioValue(
-          currentAttractor.y + Math.sin(orbit) * (16 + index * 7),
-          studioActorPadding,
-          studioActorMaxY(bounds),
-        )
-      } else if (now > actor.nextWanderAt) {
-        moveActorToWanderTarget(actor, bounds, now, index)
-      }
-
-      const dx = actor.targetX - actor.x
-      const dy = actor.targetY - actor.y
-      const distance = Math.max(Math.hypot(dx, dy), 1)
-
-      if (distance < 18 && !isAttracted) {
-        moveActorToWanderTarget(actor, bounds, now, index)
-      }
-
-      const targetSpeed = actor.speed * motionScale * (isAttracted ? 1.12 : 1) * (distance < 70 ? 0.72 : 1)
-      const desiredVx = (dx / distance) * targetSpeed
-      const desiredVy = (dy / distance) * targetSpeed
-      const follow = Math.min(1, delta * (isAttracted ? 5.8 : 3.7))
-
-      actor.vx += (desiredVx - actor.vx) * follow
-      actor.vy += (desiredVy - actor.vy) * follow
-      actor.x = clampStudioValue(actor.x + actor.vx * delta, studioActorPadding, Math.max(studioActorPadding, bounds.width - studioActorPadding))
-      actor.y = clampStudioValue(actor.y + actor.vy * delta, studioActorPadding, studioActorMaxY(bounds))
-
-      const speed = Math.hypot(actor.vx, actor.vy)
-
-      if (speed > 1) {
-        actor.direction = Math.atan2(actor.vy, actor.vx)
-        if (Math.abs(actor.vx) > 3) {
-          actor.facing = actor.vx < 0 ? -1 : 1
-        }
-        actor.step += speed * delta * (actor.brush.stamp === 'crab' ? 0.12 : 0.08)
-      }
-
-      const trailDelay = actor.brush.stamp === 'crab' ? 120 : actor.brush.stamp === 'turtle' ? 230 : 170
-
-      if (speed > 7 && now - actor.lastTrailAt > trailDelay) {
-        drawCreatureTrail(canvas, shimmerCanvas, actor, speed / 70)
-        actor.lastTrailAt = now
-      }
-    })
-
-    if (now - lastShimmerFadeAtRef.current > 84) {
-      fadeSandLift(shimmerCanvas)
-      lastShimmerFadeAtRef.current = now
-    }
-  }
-
-  const dropAttractor = (point: StudioPoint) => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    const now = performance.now()
-    const safePoint = studioPointInBounds(bounds, point.x, point.y)
-    const nextAttractor = {
-      id: now,
-      time: now,
-      x: safePoint.x,
-      y: safePoint.y,
-    }
-
-    attractorRef.current = nextAttractor
-    setAttractor(nextAttractor)
-    drawStudioShellSignal(canvasRef.current, shimmerCanvasRef.current, safePoint)
-
-    actorsRef.current.forEach((actor, index) => {
-      const angle = index * 2.15 + 0.8
-      actor.targetX = clampStudioValue(
-        safePoint.x + Math.cos(angle) * (24 + index * 8),
-        studioActorPadding,
-        Math.max(studioActorPadding, bounds.width - studioActorPadding),
-      )
-      actor.targetY = clampStudioValue(
-        safePoint.y + Math.sin(angle) * (18 + index * 6),
-        studioActorPadding,
-        studioActorMaxY(bounds),
-      )
-      actor.nextWanderAt = now + studioAttractorLifetime
-    })
-
-    if (isPaused) {
-      setIsPaused(false)
-    }
-
-    setStudioVoice('A shell! The turtle is on the way.')
-  }
-
-  const handleSandPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
-    event.preventDefault()
-    event.currentTarget.focus()
-
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    dropAttractor(canvasPointFromClient(bounds, event.clientX, event.clientY, performance.now()))
-  }
-
-  const scatterCreatures = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    const now = performance.now()
-    attractorRef.current = null
-    setAttractor(null)
-    actorsRef.current.forEach((actor, index) => {
-      moveActorToWanderTarget(actor, bounds, now + index * 500, index)
-      drawSandStamp(canvasRef.current, shimmerCanvasRef.current, actor.brush, {
-        time: now,
-        x: actor.x,
-        y: actor.y,
-      }, reducedMotion ? 0.5 : 0.74)
-    })
-    fadeSandLift(shimmerCanvasRef.current)
-    setStudioVoice('A new turtle trail.')
-  }
-
-  const clearStudio = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    textCursorRef.current = null
-    textStampsRef.current = []
-    attractorRef.current = null
-    setAttractor(null)
-    clearStudioSurface(canvasRef.current, shimmerCanvasRef.current)
-
-    if (bounds) {
-      actorsRef.current = createStudioActors(bounds)
-    }
-
-    setStudioVoice('Fresh sand.')
-  }
-
-  const togglePause = () => {
-    setIsPaused((current) => {
-      const next = !current
-      isPausedRef.current = next
-      lastFrameAtRef.current = performance.now()
-      setStudioVoice(next ? 'Turtle nap time.' : 'Off the turtle goes.')
-      return next
-    })
-  }
-
-  const toggleFullscreen = async () => {
-    const section = studioSectionRef.current
-
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      } else if (section?.requestFullscreen) {
-        await section.requestFullscreen()
-      } else {
-        setIsFullscreen((current) => !current)
-      }
-    } catch {
-      setIsFullscreen((current) => !current)
-    } finally {
-      window.setTimeout(refreshCanvasBounds, 120)
-    }
-  }
-
-  const handleStudioKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) {
-      return
-    }
-
-    const canvas = canvasRef.current
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!canvas || !bounds) {
-      return
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setIsPaused(true)
-      setStudioVoice('Turtle nap time.')
-      return
-    }
-
-    if (event.key === 'Backspace') {
-      event.preventDefault()
-      const lastStamp = textStampsRef.current.pop()
-
-      if (lastStamp) {
-        smoothStudioRect(canvas, lastStamp.x, lastStamp.y, lastStamp.width, lastStamp.height)
-        textCursorRef.current = keepTextCursorInBounds({
-          time: performance.now(),
-          x: lastStamp.x,
-          y: lastStamp.y,
-        })
-      }
-      return
-    }
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      scatterCreatures()
-      return
-    }
-
-    if (event.key.startsWith('Arrow')) {
-      event.preventDefault()
-      const cursor = keepTextCursorInBounds(textCursorRef.current ?? defaultTextCursor())
-      const move = event.shiftKey ? 44 : 20
-      textCursorRef.current = keepTextCursorInBounds({
-        time: performance.now(),
-        x: cursor.x + (event.key === 'ArrowRight' ? move : event.key === 'ArrowLeft' ? -move : 0),
-        y: cursor.y + (event.key === 'ArrowDown' ? move : event.key === 'ArrowUp' ? -move : 0),
-      })
-      return
-    }
-
-    if (event.key.length !== 1) {
-      return
-    }
-
-    event.preventDefault()
-    let cursor = keepTextCursorInBounds(textCursorRef.current ?? defaultTextCursor())
-
-    if (cursor.x > bounds.width - 60) {
-      cursor = {
-        time: performance.now(),
-        x: Math.max(28, bounds.width * 0.12),
-        y: cursor.y + studioTextLineHeight,
-      }
-    }
-
-    const stamp = drawSandLetter(canvas, shimmerCanvasRef.current, event.key, cursor)
-    textStampsRef.current.push({
-      ...stamp,
-      text: event.key,
-      x: cursor.x,
-      y: cursor.y,
-    })
-    textCursorRef.current = keepTextCursorInBounds({
-      time: performance.now(),
-      x: cursor.x + stamp.width + (event.key === ' ' ? studioTextSize * 0.18 : 4),
-      y: cursor.y,
-    })
-    dropAttractor({
-      time: performance.now(),
-      x: cursor.x + stamp.width / 2,
-      y: cursor.y + studioTextSize * 0.44,
-    })
-    setStudioVoice('Letters in the sand.')
-  }
-
-  return (
-    <section
-      className={`studio-section studio-game-section ${isFullscreen ? 'is-studio-fullscreen' : ''}`}
-      data-no-splash
-      aria-labelledby="studio-title"
-      ref={studioSectionRef}
-    >
-      <div className="studio-intro">
-        <div>
-          <p className="eyebrow">
-            <Waves size={16} />
-            Tiny tide club
-          </p>
-          <h2 aria-label="Come play in the sand." id="studio-title">
-            <KineticText lines={['Come play in', 'the sand.']} />
-          </h2>
-        </div>
-      </div>
-
-      <div className="studio-layout">
-        <div className="studio-canvas-shell">
-          <div className="studio-sandbar">
-            <canvas
-              aria-label="Self-playing sand game. A sea turtle wanders across the beach; tap or type to change its path."
-              className="splash-canvas"
-              onKeyDown={handleStudioKeyDown}
-              onPointerDown={handleSandPointerDown}
-              ref={canvasRef}
-              tabIndex={0}
-            />
-            <canvas aria-hidden="true" className="splash-shimmer-canvas" ref={shimmerCanvasRef} />
-            {attractor ? (
-              <span
-                aria-hidden="true"
-                className="studio-attractor"
-                style={
-                  {
-                    '--attractor-x': `${attractor.x}px`,
-                    '--attractor-y': `${attractor.y}px`,
-                  } as CSSProperties
-                }
-              />
-            ) : null}
-            <div aria-hidden="true" className="studio-creatures">
-              {studioBrushes.map((brush) => (
-                <div
-                  className={`studio-creature studio-creature-${brush.stamp}`}
-                  key={brush.id}
-                  ref={setCreatureNode(brush.id)}
-                  style={
-                    {
-                      '--studio-creature-glow': brush.creatureGlow,
-                      '--studio-creature-size': `${studioCreatureDisplaySize(brush)}px`,
-                    } as CSSProperties
-                  }
-                >
-                  <img alt="" decoding="async" loading="lazy" src={brush.creatureImage} />
-                </div>
-              ))}
-            </div>
-            <div className="studio-panel">
-              <p aria-live="polite" className="studio-voice">
-                {studioVoice}
-              </p>
-              <div className="studio-actions">
-                <button
-                  aria-pressed={!isPaused}
-                  className="icon-button studio-tool-button"
-                  onClick={togglePause}
-                  title={isPaused ? 'Play' : 'Pause'}
-                  type="button"
-                >
-                  {isPaused ? <Play size={18} /> : <Pause size={18} />}
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={scatterCreatures}
-                  title="New paths"
-                  type="button"
-                >
-                  <Sparkles size={18} />
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={() => void toggleFullscreen()}
-                  title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                  type="button"
-                >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={clearStudio}
-                  title="Smooth sand"
-                  type="button"
-                >
-                  <RotateCcw size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function DeferredStudio({ reducedMotion }: { reducedMotion: boolean }) {
-  const [shouldMount, setShouldMount] = useState(
-    () => typeof window !== 'undefined' && window.location.hash === '#studio',
-  )
-  const placeholderRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (shouldMount) {
-      return
-    }
-
-    const placeholder = placeholderRef.current
-
-    if (!placeholder || !('IntersectionObserver' in window)) {
-      setShouldMount(true)
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldMount(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '900px 0px' },
-    )
-
-    observer.observe(placeholder)
-
-    return () => observer.disconnect()
-  }, [shouldMount])
-
-  return (
-    <div
-      className={`studio-deferred ${shouldMount ? 'is-mounted' : ''}`}
-      id="studio"
-      ref={placeholderRef}
-    >
-      {shouldMount ? <SplashStudio reducedMotion={reducedMotion} /> : null}
-    </div>
   )
 }
 
@@ -3772,29 +3063,6 @@ function AboutSection() {
     <section className="about-section" id="about" aria-labelledby="about-title">
       <div aria-hidden="true" className="about-tide-wash" />
       <div className="about-section-inner">
-        <figure className="about-keepsake">
-          <div className="about-photo-frame">
-            <picture>
-              <source srcSet={aboutBeachPhotoWebp} type="image/webp" />
-              <img
-                alt="Ira and Joni standing with bodyboards on the beach in Half Moon Bay."
-                decoding="async"
-                height="1183"
-                loading="lazy"
-                src={aboutBeachPhoto}
-                width="692"
-              />
-            </picture>
-            <span aria-hidden="true" className="about-frame-shell">
-              <Shell size={22} strokeWidth={1.8} />
-            </span>
-          </div>
-          <figcaption>
-            <MapPin aria-hidden="true" size={15} />
-            Half Moon Bay, California
-          </figcaption>
-        </figure>
-
         <div className="about-section-copy">
           <p className="eyebrow">
             <Sparkles size={16} />
@@ -4068,7 +3336,7 @@ function App() {
     typeof window === 'undefined' ? '' : window.location.hash,
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode)
+  const [themeMode] = useState<ThemeMode>(getInitialThemeMode)
   const [openPolicy, setOpenPolicy] = useState<PolicyKind | null>(null)
   const [splashes, setSplashes] = useState<Splash[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
@@ -4656,7 +3924,6 @@ function App() {
         <span className="painted-wash painted-wash-shop" />
         <span className="painted-wash painted-wash-bundle" />
         <span className="painted-wash painted-wash-films" />
-        <span className="painted-wash painted-wash-studio" />
         <span className="painted-stroke painted-stroke-one" />
         <span className="painted-stroke painted-stroke-two" />
         <span className="painted-stroke painted-stroke-three" />
@@ -4707,8 +3974,7 @@ function App() {
             <img alt="" src={brandMark} />
           </span>
           <span>
-            Saltwater
-            <strong>Squish</strong>
+            Saltwater <strong>Squish</strong>
           </span>
         </a>
 
@@ -4716,10 +3982,6 @@ function App() {
           <a href="#shop">
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
-          </a>
-          <a href="#studio">
-            <span aria-hidden="true" className="nav-icon nav-icon-studio"><Turtle size={15} /></span>
-            Studio
           </a>
           <a href="#films">
             <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
@@ -4732,22 +3994,6 @@ function App() {
         </nav>
 
         <div className="header-actions">
-          <button
-            aria-label={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
-            aria-pressed={themeMode === 'night'}
-            className="theme-mode-toggle"
-            data-mode={themeMode}
-            onClick={() => setThemeMode((currentMode) => currentMode === 'day' ? 'night' : 'day')}
-            title={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
-            type="button"
-          >
-            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-day">
-              <Sun size={16} strokeWidth={2} />
-            </span>
-            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-night">
-              <MoonStar size={15} strokeWidth={2} />
-            </span>
-          </button>
           <button
             aria-controls="mobile-nav"
             aria-expanded={mobileNavOpen}
@@ -4782,10 +4028,6 @@ function App() {
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
           </a>
-          <a href="#studio" onClick={() => setMobileNavOpen(false)}>
-            <span aria-hidden="true" className="nav-icon nav-icon-studio"><Turtle size={15} /></span>
-            Studio
-          </a>
           <a href="#films" onClick={() => setMobileNavOpen(false)}>
             <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
             Films
@@ -4819,19 +4061,6 @@ function App() {
         ) : (
           <>
         <section className="hero-section">
-          <picture>
-            <source srcSet={heroImageWebp} type="image/webp" />
-            <img
-              alt="Coastal squishy toys on pale sand beside shallow turquoise water."
-              className="hero-photo"
-              decoding="sync"
-              fetchPriority="high"
-              height="810"
-              loading="eager"
-              src={heroImage}
-              width="1440"
-            />
-          </picture>
           <div className="hero-tint" />
           <div aria-hidden="true" className="hero-story-lines">
             <span>Half Moon Bay</span>
@@ -4862,12 +4091,6 @@ function App() {
             </div>
           </div>
         </section>
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-water-sand"
-          data-shoreline
-        />
 
         <section
           className="shop-section"
@@ -4959,18 +4182,11 @@ function App() {
         <DropFilmsSection films={dropFilms} products={storefrontProducts} status={dropFilmsStatus} />
 
         <AboutSection />
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-studio shoreline-bridge-water-sand"
-          data-shoreline
-        />
           </>
         )}
       </main>
 
       <footer className="site-footer">
-        {!isAdminRoute ? <DeferredStudio reducedMotion={reducedMotion} /> : null}
         <div className="footer-bar">
           <div aria-hidden="true" className="footer-ocean-scene">
             <span className="footer-wave footer-wave-back" />

@@ -226,9 +226,7 @@
 }
 
 .brand strong {
-  display: block;
   color: rgba(54, 50, 44, 0.66);
-  font-size: 0.82em;
   font-weight: 500;
 }
 
@@ -434,9 +432,9 @@
   max-width: 7.9em;
   margin: 0;
   color: var(--ink);
-  font-family: var(--display);
+  font-family: "Cherry Bomb One", var(--display);
   font-size: 5rem;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 0.96;
   letter-spacing: 0;
 }
@@ -5464,9 +5462,8 @@ button.film-play-badge {
 }
 
 .brand {
-  font-family: var(--accent);
+  font-family: "Cherry Bomb One", var(--accent);
   font-size: 1.08rem;
-  font-variation-settings: "SOFT" 90, "WONK" 1;
 }
 
 .brand strong {
@@ -5609,9 +5606,6 @@ button.film-play-badge {
   inset: 0;
   bottom: auto;
   height: 100%;
-  background:
-    linear-gradient(90deg, rgba(5, 76, 88, 0.78) 0%, rgba(8, 101, 112, 0.56) 34%, rgba(13, 112, 121, 0.1) 66%, rgba(255, 176, 147, 0.08) 100%),
-    linear-gradient(180deg, rgba(255, 152, 134, 0.18), transparent 35%, rgba(2, 72, 86, 0.38) 100%);
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -5624,21 +5618,20 @@ button.film-play-badge {
 
 .hero-content .eyebrow {
   padding: 8px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(54, 50, 44, 0.14);
   border-radius: 999px;
-  color: #fff5c9;
-  background: rgba(4, 73, 84, 0.28);
-  box-shadow: 0 8px 28px rgba(4, 61, 70, 0.14);
+  color: rgba(54, 50, 44, 0.76);
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 8px 28px rgba(65, 93, 89, 0.1);
   backdrop-filter: blur(10px);
 }
 
 .hero-content h1 {
   max-width: none;
   color: #fff8da;
-  font-family: var(--accent);
+  font-family: "Cherry Bomb One", var(--accent);
   font-size: 8.4rem;
-  font-variation-settings: "SOFT" 100, "WONK" 1;
-  font-weight: 760;
+  font-weight: 400;
   line-height: 0.77;
   text-wrap: balance;
 }
@@ -5690,10 +5683,9 @@ button.film-play-badge {
 
 .hero-copy {
   margin-top: 28px;
-  color: #fffaf0;
+  color: rgba(54, 50, 44, 0.82);
   font-size: 1.22rem;
   font-weight: 650;
-  text-shadow: 0 2px 12px rgba(2, 53, 64, 0.54);
 }
 
 .hero-story-lines {
@@ -6049,12 +6041,6 @@ button.film-play-badge {
   .hero-photo {
     object-position: 61% center;
     filter: saturate(1.08) contrast(0.98) brightness(1.02);
-  }
-
-  .hero-tint {
-    background:
-      linear-gradient(100deg, rgba(5, 74, 86, 0.82) 0%, rgba(7, 95, 106, 0.62) 48%, rgba(10, 100, 111, 0.16) 88%),
-      linear-gradient(180deg, rgba(255, 152, 134, 0.14), transparent 38%, rgba(2, 65, 78, 0.42) 100%);
   }
 
   .hero-content {
@@ -6449,7 +6435,6 @@ button.film-play-badge {
   background: #c5e0d1;
 }
 
-.hero-section,
 .about-hero {
   background: #5caea8;
 }
@@ -6459,14 +6444,12 @@ button.film-play-badge {
   filter: saturate(0.84) contrast(0.94) brightness(1.1);
 }
 
-.hero-tint,
 .about-hero-wash {
   background:
     linear-gradient(90deg, rgba(48, 91, 87, 0.78) 0%, rgba(75, 130, 125, 0.54) 38%, rgba(121, 189, 176, 0.08) 72%, transparent 100%),
     linear-gradient(180deg, rgba(197, 224, 209, 0.08), transparent 36%, rgba(46, 82, 79, 0.36) 100%);
 }
 
-.hero-content .eyebrow,
 .about-hero-copy .eyebrow {
   color: #f6e8ce;
   background: rgba(48, 91, 87, 0.28);
@@ -6828,98 +6811,11 @@ button.film-play-badge {
 
 .about-section-inner {
   display: grid;
-  width: min(1180px, 100%);
-  grid-template-columns: minmax(330px, 0.82fr) minmax(0, 1.18fr);
-  gap: 108px;
+  width: min(760px, 100%);
   align-items: center;
   margin: 0 auto;
 }
 
-.about-keepsake {
-  position: relative;
-  width: min(100%, 460px);
-  margin: 0;
-  transform: translate3d(0, var(--tide-rise-slow), 0) rotate(-1.4deg);
-  transform-origin: 50% 72%;
-  will-change: transform;
-}
-
-.about-keepsake::before {
-  position: absolute;
-  inset: 8% -44px -28px 28px;
-  z-index: -1;
-  border-radius: 46% 54% 42% 58% / 54% 38% 62% 46%;
-  background:
-    radial-gradient(ellipse at 35% 25%, rgba(197, 224, 209, 0.88), transparent 56%),
-    rgba(121, 189, 176, 0.32);
-  content: "";
-  filter: blur(3px);
-  transform: rotate(4deg);
-}
-
-.about-photo-frame {
-  position: relative;
-  padding: 14px 14px 72px;
-  border: 1px solid rgba(92, 94, 86, 0.12);
-  border-radius: 6px;
-  background: #fbf6ea;
-  box-shadow:
-    0 34px 76px rgba(57, 91, 86, 0.18),
-    0 8px 20px rgba(72, 73, 67, 0.1),
-    inset 0 0 0 6px rgba(255, 255, 255, 0.36);
-}
-
-.about-photo-frame::before {
-  position: absolute;
-  top: -18px;
-  left: 50%;
-  z-index: 2;
-  width: 116px;
-  height: 38px;
-  background: rgba(232, 206, 179, 0.82);
-  box-shadow: 0 5px 10px rgba(72, 73, 67, 0.08);
-  clip-path: polygon(3% 12%, 97% 0, 94% 88%, 6% 100%);
-  content: "";
-  opacity: 0.9;
-  transform: translateX(-50%) rotate(-2.6deg);
-}
-
-.about-photo-frame img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 692 / 1183;
-  border-radius: 3px;
-  object-fit: cover;
-  filter: saturate(0.88) contrast(0.96) brightness(1.07);
-}
-
-.about-frame-shell {
-  position: absolute;
-  right: 20px;
-  bottom: 19px;
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 50%;
-  color: #4e7772;
-  background: #c5e0d1;
-  transform: rotate(10deg);
-}
-
-.about-keepsake figcaption {
-  position: absolute;
-  bottom: 28px;
-  left: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #59635f;
-  font-family: var(--display);
-  font-size: 0.86rem;
-  font-weight: 650;
-}
 
 .about-section-copy {
   position: relative;
@@ -7134,11 +7030,6 @@ button.film-play-badge {
     gap: 92px;
   }
 
-  .about-keepsake {
-    width: min(78vw, 430px);
-    justify-self: center;
-  }
-
   .about-section-copy {
     max-width: 620px;
   }
@@ -7156,26 +7047,6 @@ button.film-play-badge {
 
   .about-section-inner {
     gap: 70px;
-  }
-
-  .about-keepsake {
-    width: min(88vw, 370px);
-    transform: translate3d(0, var(--tide-rise-slow), 0) rotate(-0.8deg);
-  }
-
-  .about-photo-frame {
-    padding: 11px 11px 66px;
-  }
-
-  .about-keepsake figcaption {
-    bottom: 26px;
-    left: 25px;
-    font-size: 0.78rem;
-  }
-
-  .about-frame-shell {
-    right: 16px;
-    bottom: 16px;
   }
 
   .about-section-copy h2 {
@@ -7212,10 +7083,6 @@ button.film-play-badge {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .about-keepsake {
-    will-change: auto;
-  }
-
   .studio-canvas-shell::before,
   .studio-canvas-shell::after {
     animation: none !important;
@@ -7281,15 +7148,14 @@ button.film-play-badge {
     linear-gradient(180deg, rgba(125, 104, 124, 0.62), rgba(216, 204, 226, 0.18) 52%, transparent);
 }
 
-.brand,
-.brand strong,
 .primary-nav a,
 .mobile-nav a {
   color: #fff8ef;
 }
 
+.brand,
 .brand strong {
-  color: #f7d7b8;
+  color: #000;
 }
 
 .primary-nav a:hover,
@@ -7340,22 +7206,14 @@ button.film-play-badge {
 }
 
 .hero-section {
-  background: #9b8498;
+  background:
+    radial-gradient(ellipse at 88% 8%, rgba(216, 204, 226, 0.4), transparent 34rem),
+    radial-gradient(ellipse at 10% 42%, rgba(242, 207, 178, 0.38), transparent 34rem),
+    linear-gradient(180deg, #fae8d8 0%, #fff7ef 32%, #eadde8 100%);
 }
 
 .hero-photo {
   filter: saturate(0.82) contrast(0.94) brightness(1.1) sepia(0.08);
-}
-
-.hero-tint {
-  background:
-    linear-gradient(90deg, rgba(83, 65, 80, 0.74), rgba(153, 106, 128, 0.46) 38%, rgba(216, 204, 226, 0.08) 72%, transparent),
-    linear-gradient(180deg, rgba(242, 207, 178, 0.15), transparent 38%, rgba(92, 70, 88, 0.32));
-}
-
-.hero-content .eyebrow {
-  color: #fff0d8;
-  background: rgba(91, 69, 88, 0.28);
 }
 
 .hero-content h1 .kinetic-letter {
@@ -7498,22 +7356,6 @@ button.film-play-badge {
   background: rgba(213, 190, 222, 0.44);
 }
 
-.about-keepsake::before {
-  background:
-    radial-gradient(ellipse at 35% 25%, rgba(237, 198, 208, 0.76), transparent 56%),
-    rgba(216, 204, 226, 0.42);
-}
-
-.about-photo-frame {
-  background: #fff8ef;
-  box-shadow: 0 34px 76px rgba(104, 80, 101, 0.18), 0 8px 20px rgba(95, 88, 97, 0.1), inset 0 0 0 6px rgba(255, 255, 255, 0.38);
-}
-
-.about-frame-shell {
-  color: #765f76;
-  background: #e2d4e8;
-}
-
 .about-section-copy > .eyebrow,
 .about-coast-note a {
   color: #936b7d;
@@ -7649,74 +7491,6 @@ button.film-play-badge {
   background: rgba(226, 212, 232, 0.76);
 }
 
-/* Day and golden-hour modes share the layout while changing the whole coastal light. */
-.theme-mode-toggle {
-  position: relative;
-  display: grid;
-  width: 68px;
-  height: 38px;
-  flex: 0 0 68px;
-  grid-template-columns: repeat(2, 1fr);
-  align-items: center;
-  padding: 4px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 999px;
-  color: rgba(255, 250, 243, 0.68);
-  background: rgba(70, 59, 78, 0.22);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  isolation: isolate;
-  transition: background-color 240ms ease, box-shadow 240ms ease;
-}
-
-.theme-mode-toggle::before {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  z-index: -1;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #fff0ca;
-  box-shadow: 0 4px 12px rgba(62, 47, 65, 0.2);
-  content: "";
-  transition: transform 280ms cubic-bezier(0.2, 0.78, 0.24, 1), background-color 240ms ease;
-}
-
-.theme-mode-toggle[data-mode="night"]::before {
-  background: #f1d7e6;
-  transform: translateX(32px);
-}
-
-.theme-mode-icon {
-  display: grid;
-  place-items: center;
-  opacity: 0.56;
-  transition: color 220ms ease, opacity 220ms ease, transform 280ms ease;
-}
-
-.theme-day .theme-mode-icon-day {
-  color: #a55f4f;
-  opacity: 1;
-  transform: rotate(12deg);
-}
-
-.theme-night .theme-mode-icon-night {
-  color: #705d78;
-  opacity: 1;
-  transform: rotate(-8deg);
-}
-
-.theme-mode-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 7px 18px rgba(67, 53, 70, 0.14);
-}
-
-.theme-mode-toggle:focus-visible {
-  outline: 3px solid rgba(255, 242, 211, 0.82);
-  outline-offset: 3px;
-}
-
 .theme-day {
   color: #505b64;
   background: #edf5f7;
@@ -7769,15 +7543,14 @@ button.film-play-badge {
     linear-gradient(180deg, rgba(91, 137, 158, 0.64), rgba(193, 221, 231, 0.18) 52%, transparent);
 }
 
-.theme-day .brand,
-.theme-day .brand strong,
 .theme-day .primary-nav a,
 .theme-day .mobile-nav a {
   color: #fffaf2;
 }
 
+.theme-day .brand,
 .theme-day .brand strong {
-  color: #ffe5c8;
+  color: #000;
 }
 
 .theme-day .primary-nav a:hover,
@@ -7828,22 +7601,14 @@ button.film-play-badge {
 }
 
 .theme-day .hero-section {
-  background: #77a6ba;
+  background:
+    radial-gradient(ellipse at 88% 8%, rgba(184, 214, 228, 0.48), transparent 34rem),
+    radial-gradient(ellipse at 10% 42%, rgba(247, 210, 188, 0.34), transparent 34rem),
+    linear-gradient(180deg, #edf5f6 0%, #fff8ef 34%, #dce9ee 100%);
 }
 
 .theme-day .hero-photo {
   filter: saturate(0.94) contrast(0.94) brightness(1.14) hue-rotate(-3deg);
-}
-
-.theme-day .hero-tint {
-  background:
-    linear-gradient(90deg, rgba(54, 89, 108, 0.7), rgba(94, 139, 160, 0.42) 40%, rgba(208, 229, 235, 0.08) 74%, transparent),
-    linear-gradient(180deg, rgba(255, 207, 178, 0.12), transparent 38%, rgba(54, 91, 112, 0.28));
-}
-
-.theme-day .hero-content .eyebrow {
-  color: #fff4dd;
-  background: rgba(51, 88, 107, 0.26);
 }
 
 .theme-day .hero-content h1 .kinetic-letter {
@@ -7986,22 +7751,6 @@ button.film-play-badge {
   background: rgba(189, 217, 227, 0.46);
 }
 
-.theme-day .about-keepsake::before {
-  background:
-    radial-gradient(ellipse at 35% 25%, rgba(247, 210, 188, 0.68), transparent 56%),
-    rgba(194, 219, 229, 0.42);
-}
-
-.theme-day .about-photo-frame {
-  background: #fffaf2;
-  box-shadow: 0 34px 76px rgba(67, 105, 125, 0.18), 0 8px 20px rgba(74, 100, 115, 0.1), inset 0 0 0 6px rgba(255, 255, 255, 0.4);
-}
-
-.theme-day .about-frame-shell {
-  color: #5e7481;
-  background: #dbe9ee;
-}
-
 .theme-day .about-section-copy > .eyebrow,
 .theme-day .about-coast-note a {
   color: #657f8d;
@@ -8137,23 +7886,6 @@ button.film-play-badge {
   background: rgba(215, 232, 238, 0.78);
 }
 
-@media (max-width: 720px) {
-  .theme-mode-toggle {
-    width: 58px;
-    height: 36px;
-    flex-basis: 58px;
-  }
-
-  .theme-mode-toggle::before {
-    width: 26px;
-    height: 26px;
-  }
-
-  .theme-mode-toggle[data-mode="night"]::before {
-    transform: translateX(24px);
-  }
-}
-
 @media (max-width: 420px) {
   .site-header {
     gap: 6px;
@@ -8177,22 +7909,5 @@ button.film-play-badge {
   .cart-button {
     min-width: 72px;
     padding-inline: 8px;
-  }
-
-  .theme-mode-toggle {
-    width: 54px;
-    flex-basis: 54px;
-  }
-
-  .theme-mode-toggle[data-mode="night"]::before {
-    transform: translateX(20px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .theme-mode-toggle,
-  .theme-mode-toggle::before,
-  .theme-mode-icon {
-    transition: none;
   }
 }
