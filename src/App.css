@@ -1244,15 +1244,28 @@
   content: "";
   background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.42) 46%, transparent 62%);
   opacity: 0;
-  transform: translateX(-80%);
-  transition:
-    opacity 160ms ease,
-    transform 520ms ease;
+  transform: translateX(-120%);
+  pointer-events: none;
 }
 
 .product-card:hover .product-visual::after {
-  opacity: 1;
-  transform: translateX(80%);
+  animation: product-glimmer 560ms ease forwards;
+}
+
+@keyframes product-glimmer {
+  0% {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
 }
 
 .product-media-gallery {
@@ -1330,6 +1343,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .product-media-hover-target[data-hover-playing="true"] .product-visual {
+    animation: none;
+  }
+
+  .product-card:hover .product-visual::after {
     animation: none;
   }
 }
