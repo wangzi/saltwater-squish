@@ -24,11 +24,13 @@ import {
   ShoppingBag,
   ShieldCheck,
   Sparkles,
+  Sun,
   Trash2,
   Turtle,
   Upload,
   Waves,
   X,
+  MoonStar,
 } from 'lucide-react'
 import { type PutBlobResult } from '@vercel/blob'
 import {
@@ -88,6 +90,8 @@ type ProductMediaByProduct = Record<string, ProductMedia[]>
 type Cart = Record<string, number>
 
 type PolicyKind = 'shipping' | 'returns' | 'safety'
+
+type ThemeMode = 'day' | 'night'
 
 type Splash = {
   id: number
@@ -232,6 +236,21 @@ const acceptedProductMediaTypes = [
   'video/webm',
   'video/quicktime',
 ]
+
+const themeStorageKey = 'saltwater-squish-theme'
+
+function getInitialThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'day'
+  }
+
+  try {
+    const savedTheme = window.localStorage.getItem(themeStorageKey)
+    return savedTheme === 'night' ? 'night' : 'day'
+  } catch {
+    return 'day'
+  }
+}
 
 function scheduleIdleTask(task: () => void) {
   if (typeof window === 'undefined') {
@@ -3724,6 +3743,7 @@ function App() {
     typeof window === 'undefined' ? '' : window.location.hash,
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode)
   const [openPolicy, setOpenPolicy] = useState<PolicyKind | null>(null)
   const [splashes, setSplashes] = useState<Splash[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
@@ -3735,6 +3755,14 @@ function App() {
   const pendingPointerRef = useRef({ x: 50, y: 45 })
   const reducedMotion = usePrefersReducedMotion()
   const isAdminRoute = hashRoute === '#admin' || hashRoute === '#films-admin'
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(themeStorageKey, themeMode)
+    } catch {
+      // The theme still works when browser storage is unavailable.
+    }
+  }, [themeMode])
 
   const loadDropFilms = useCallback(async () => {
     setDropFilmsStatus('loading')
@@ -4192,7 +4220,7 @@ function App() {
 
   return (
     <div
-      className="site-shell"
+      className={`site-shell theme-${themeMode}`}
       onPointerDown={handleShellPointerDown}
       onPointerMove={handleShellPointerMove}
     >
@@ -4278,6 +4306,22 @@ function App() {
         </nav>
 
         <div className="header-actions">
+          <button
+            aria-label={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
+            aria-pressed={themeMode === 'night'}
+            className="theme-mode-toggle"
+            data-mode={themeMode}
+            onClick={() => setThemeMode((currentMode) => currentMode === 'day' ? 'night' : 'day')}
+            title={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
+            type="button"
+          >
+            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-day">
+              <Sun size={16} strokeWidth={2} />
+            </span>
+            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-night">
+              <MoonStar size={15} strokeWidth={2} />
+            </span>
+          </button>
           <button
             aria-controls="mobile-nav"
             aria-expanded={mobileNavOpen}
