@@ -3603,8 +3603,10 @@ function AboutSection() {
 
           <blockquote className="about-squish-test">
             <span>Our house rule</span>
-            If it doesn't pass the official Ira-and-Joni squish test, it doesn't make it onto the
-            shelf.
+            <p>
+              If it doesn't pass the official Ira-and-Joni squish test, it doesn't make it onto the
+              shelf.
+            </p>
           </blockquote>
 
           <div className="about-coast-note">

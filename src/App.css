@@ -6832,37 +6832,72 @@ button.film-play-badge {
 
 .about-squish-test {
   position: relative;
-  max-width: 560px;
-  margin: 34px 0 0;
-  padding: 26px 32px 28px;
-  color: #4c5956;
+  isolation: isolate;
+  max-width: 540px;
+  margin: 42px 0 4px 12px;
+  padding: 48px 48px 44px;
+  color: var(--note-ink, #5c5d58);
   background:
-    radial-gradient(ellipse at 18% 42%, rgba(251, 246, 234, 0.9), transparent 50%),
-    linear-gradient(98deg, rgba(232, 206, 179, 0.5), rgba(197, 224, 209, 0.48), transparent 92%);
-  font-family: var(--display);
-  font-size: 1.34rem;
-  font-weight: 610;
-  line-height: 1.45;
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 35px,
+      var(--note-line, rgba(126, 171, 180, 0.17)) 36px 37px
+    ),
+    radial-gradient(circle at 14% 8%, rgba(255, 255, 255, 0.74), transparent 42%),
+    var(--note-paper, #fff8e8);
+  box-shadow:
+    0 18px 34px rgba(91, 73, 59, 0.12),
+    0 3px 7px rgba(91, 73, 59, 0.08),
+    inset 0 0 34px rgba(202, 163, 117, 0.08);
+  clip-path: polygon(1.2% 3%, 28% 1%, 54% 2.2%, 78% 0.7%, 98.8% 2.8%, 99.6% 34%, 98.4% 67%, 100% 97%, 72% 99.2%, 46% 98%, 22% 100%, 0.8% 97.2%, 1.5% 64%, 0 31%);
+  font-family: "Caveat Variable", "Bradley Hand", "Segoe Print", cursive;
+  font-size: 2rem;
+  font-weight: 590;
+  line-height: 1.12;
+  transform: rotate(-1deg);
+  transform-origin: 48% 50%;
 }
 
 .about-squish-test::before {
   position: absolute;
-  inset: -8px -18px;
-  z-index: -1;
-  border-radius: 46% 54% 44% 56% / 50% 42% 58% 50%;
-  background: rgba(246, 232, 206, 0.3);
+  top: -10px;
+  left: 50%;
+  z-index: 2;
+  width: 112px;
+  height: 30px;
+  background: var(--note-tape, rgba(238, 199, 188, 0.64));
+  box-shadow: 0 3px 7px rgba(91, 73, 59, 0.08);
+  clip-path: polygon(3% 10%, 98% 0, 94% 90%, 0 100%);
   content: "";
-  filter: blur(12px);
+  transform: translateX(-50%) rotate(2.4deg);
+}
+
+.about-squish-test::after {
+  position: absolute;
+  right: 38px;
+  bottom: 24px;
+  width: 92px;
+  height: 10px;
+  border-bottom: 3px solid var(--note-accent, rgba(170, 121, 109, 0.56));
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-2deg);
 }
 
 .about-squish-test span {
-  display: block;
-  margin-bottom: 8px;
-  color: #7c615a;
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  font-weight: 760;
-  text-transform: uppercase;
+  display: inline-block;
+  margin: 0 0 12px -4px;
+  color: var(--note-accent, #a66f69);
+  font-size: 1.14rem;
+  font-weight: 680;
+  line-height: 1;
+  transform: rotate(-2deg);
+}
+
+.about-squish-test p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
 }
 
 .about-coast-note {
@@ -7008,9 +7043,9 @@ button.film-play-badge {
   }
 
   .about-squish-test {
-    margin-top: 28px;
-    padding: 24px 20px 26px;
-    font-size: 1.18rem;
+    margin: 34px 4px 2px;
+    padding: 42px 30px 40px;
+    font-size: 1.72rem;
   }
 
   .about-coast-note {
@@ -7355,9 +7390,11 @@ button.film-play-badge {
 }
 
 .about-squish-test {
-  background:
-    radial-gradient(ellipse at 18% 42%, rgba(255, 248, 239, 0.92), transparent 50%),
-    linear-gradient(98deg, rgba(242, 207, 178, 0.5), rgba(237, 198, 208, 0.42), rgba(216, 204, 226, 0.2));
+  --note-paper: #fff4e7;
+  --note-line: rgba(177, 157, 190, 0.16);
+  --note-tape: rgba(225, 184, 197, 0.68);
+  --note-accent: #ae7188;
+  --note-ink: #625965;
 }
 
 .about-coast-note::before {
@@ -7841,9 +7878,11 @@ button.film-play-badge {
 }
 
 .theme-day .about-squish-test {
-  background:
-    radial-gradient(ellipse at 18% 42%, rgba(255, 250, 242, 0.94), transparent 50%),
-    linear-gradient(98deg, rgba(247, 210, 188, 0.46), rgba(197, 222, 231, 0.42), rgba(215, 212, 234, 0.2));
+  --note-paper: #fff8e9;
+  --note-line: rgba(105, 158, 180, 0.17);
+  --note-tape: rgba(241, 197, 174, 0.68);
+  --note-accent: #a96f7e;
+  --note-ink: #53616b;
 }
 
 .theme-day .about-coast-note::before {
