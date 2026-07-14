@@ -48,9 +48,8 @@ import {
   type RefObject,
 } from 'react'
 import './App.css'
-import brandMark from './assets/brand/saltwater-squish-mark.png'
+import brandMark from './assets/optimized/saltwater-squish-mark.webp?no-inline'
 import heroImage from './assets/optimized/hero-beach-squish.jpg'
-import heroImageAvif from './assets/optimized/hero-beach-squish.avif'
 import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
 import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
 import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
@@ -4533,12 +4532,11 @@ function App() {
           <>
         <section className="hero-section">
           <picture>
-            <source srcSet={heroImageAvif} type="image/avif" />
             <source srcSet={heroImageWebp} type="image/webp" />
             <img
               alt="Coastal squishy toys on pale sand beside shallow turquoise water."
               className="hero-photo"
-              decoding="async"
+              decoding="sync"
               fetchPriority="high"
               height="810"
               loading="eager"

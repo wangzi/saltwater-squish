@@ -9,7 +9,7 @@ export type ProductImageVariant = {
   width: number
 }
 
-const productImageWidths = [160, 640, 960]
+const productImageWidths = [160, 256, 640, 768, 960]
 
 function cleanVariantStem(pathname: string) {
   const fileName = pathname.split('/').pop() ?? 'product-image'

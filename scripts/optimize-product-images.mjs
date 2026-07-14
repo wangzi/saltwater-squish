@@ -1,7 +1,7 @@
 import { list, put } from '@vercel/blob'
 import sharp from 'sharp'
 
-const imageWidths = [160, 640, 960]
+const imageWidths = [160, 256, 640, 768, 960]
 const force = process.argv.includes('--force')
 
 if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -87,7 +87,11 @@ for (const metadataBlob of result.blobs) {
       continue
     }
 
-    if (!force && Array.isArray(asset.variants) && asset.variants.length > 0) {
+    if (
+      !force &&
+      Array.isArray(asset.variants) &&
+      imageWidths.every((width) => asset.variants.some((variant) => variant.width === width))
+    ) {
       continue
     }
 
