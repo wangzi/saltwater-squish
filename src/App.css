@@ -3680,6 +3680,19 @@ button.film-play-badge {
   animation-delay: -9s;
 }
 
+.footer-swimmer-shark {
+  top: 188px;
+  width: 118px;
+  aspect-ratio: 1.7;
+  animation-duration: 32s;
+  animation-delay: -15s;
+}
+
+.footer-swimmer-shark img {
+  filter: drop-shadow(0 10px 10px rgba(111, 73, 104, 0.2));
+  animation-duration: 2.2s;
+}
+
 .footer-swimmer-five {
   top: 218px;
   width: 48px;
@@ -4179,6 +4192,11 @@ button.film-play-badge {
 
   .footer-swimmer-three {
     top: 112px;
+  }
+
+  .footer-swimmer-shark {
+    top: 154px;
+    width: 94px;
   }
 
   .footer-swimmer-five {

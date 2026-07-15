@@ -54,6 +54,7 @@ import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
 import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
 import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
 import productSheet from './assets/optimized/product-sheet.webp'
+import pinkShark from './assets/generated/pink-shark.webp'
 import reefFishAqua from './assets/optimized/reef-fish-aqua.png'
 import reefFishCoral from './assets/optimized/reef-fish-coral.png'
 import reefFishSun from './assets/optimized/reef-fish-sun.png'
@@ -4722,6 +4723,9 @@ function App() {
             </span>
             <span className="footer-swimmer footer-swimmer-three is-reverse">
               <img alt="" decoding="async" loading="lazy" src={reefFishSun} />
+            </span>
+            <span className="footer-swimmer footer-swimmer-shark is-reverse">
+              <img alt="" decoding="async" loading="lazy" src={pinkShark} />
             </span>
             <span className="footer-swimmer footer-swimmer-five">
               <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
