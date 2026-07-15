@@ -3680,17 +3680,40 @@ button.film-play-badge {
   animation-delay: -9s;
 }
 
-.footer-swimmer-shark {
-  top: 188px;
-  width: 118px;
-  aspect-ratio: 1.7;
-  animation-duration: 32s;
-  animation-delay: -15s;
+.footer-shark-family {
+  position: absolute;
+  top: 142px;
+  left: 0;
+  display: block;
+  width: 238px;
+  height: 108px;
+  pointer-events: none;
+  animation: footer-swim-left 34s linear -17s infinite;
+  will-change: transform;
 }
 
-.footer-swimmer-shark img {
-  filter: drop-shadow(0 10px 10px rgba(111, 73, 104, 0.2));
-  animation-duration: 2.2s;
+.footer-shark-family img {
+  position: absolute;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 10px rgba(91, 68, 108, 0.2));
+  transform-origin: 50% 50%;
+  animation: footer-shark-family-paddle 2.4s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.footer-mama-shark {
+  top: 0;
+  left: 0;
+  width: 162px;
+}
+
+.footer-baby-shark {
+  right: 0;
+  bottom: 2px;
+  width: 91px;
+  animation-delay: -0.7s !important;
 }
 
 .footer-swimmer-five {
@@ -3831,6 +3854,16 @@ button.film-play-badge {
 
   to {
     transform: translate3d(0, 3px, 0) rotate(-2deg) scaleX(-1.02);
+  }
+}
+
+@keyframes footer-shark-family-paddle {
+  from {
+    transform: translate3d(0, -3px, 0) rotate(1.5deg) scaleX(-0.98);
+  }
+
+  to {
+    transform: translate3d(0, 3px, 0) rotate(-1.5deg) scaleX(-1.02);
   }
 }
 
@@ -4194,9 +4227,18 @@ button.film-play-badge {
     top: 112px;
   }
 
-  .footer-swimmer-shark {
-    top: 154px;
-    width: 94px;
+  .footer-shark-family {
+    top: 108px;
+    width: 190px;
+    height: 84px;
+  }
+
+  .footer-mama-shark {
+    width: 128px;
+  }
+
+  .footer-baby-shark {
+    width: 72px;
   }
 
   .footer-swimmer-five {
@@ -6082,12 +6124,15 @@ button.film-play-badge {
   .footer-wave,
   .footer-swimmer,
   .footer-swimmer img,
+  .footer-shark-family,
+  .footer-shark-family img,
   .footer-bubble {
     animation: none !important;
   }
 
   .footer-bubble,
-  .footer-swimmer {
+  .footer-swimmer,
+  .footer-shark-family {
     display: none;
   }
 
