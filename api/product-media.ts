@@ -1,5 +1,9 @@
 import { list } from '@vercel/blob'
 
+type ApiRequest = {
+  url?: string
+}
+
 type ApiResponse = {
   json: (body: unknown) => void
   setHeader: (name: string, value: string) => void
@@ -92,8 +96,12 @@ async function readMetadata(url: string) {
   }
 }
 
-export default async function handler(_request: unknown, response: ApiResponse) {
-  response.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+export default async function handler(request: ApiRequest, response: ApiResponse) {
+  const bypassCache = typeof request.url === 'string' && request.url.includes('v=')
+  response.setHeader(
+    'Cache-Control',
+    bypassCache ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
+  )
 
   try {
     const metadataResult = await list({ limit: 100, prefix: 'product-media-metadata/' })
