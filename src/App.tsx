@@ -2572,6 +2572,7 @@ function DropFilmAdmin({
   const [editingProductName, setEditingProductName] = useState('')
   const [savingProductId, setSavingProductId] = useState('')
   const [deletingProductId, setDeletingProductId] = useState('')
+  const [deletingMediaKey, setDeletingMediaKey] = useState('')
   const [taggingProductId, setTaggingProductId] = useState('')
   const [editingCommerceProductId, setEditingCommerceProductId] = useState('')
   const [editingPrice, setEditingPrice] = useState('')
@@ -2628,6 +2629,52 @@ function DropFilmAdmin({
       setAdminError(error instanceof Error ? error.message : 'Could not rename that product.')
     } finally {
       setSavingProductId('')
+    }
+  }
+
+  const deleteProductMedia = async (product: Product, asset: ProductMedia) => {
+    const assetPathname = asset.pathname ?? asset.id
+    const mediaKey = `${product.id}:${assetPathname}`
+    const confirmed = window.confirm(
+      `Remove this ${asset.kind} from ${product.name}?`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingMediaKey(mediaKey)
+    setAdminError('')
+    setAdminMessage('')
+
+    try {
+      const response = await fetch('/api/product-media/asset', {
+        body: JSON.stringify({ pathname: assetPathname, productId: product.id }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'DELETE',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        retainedBlob?: boolean
+      } | null
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Could not delete that media file.')
+      }
+
+      await onProductMediaRefresh()
+      setAdminMessage(
+        payload?.retainedBlob
+          ? `Removed media from ${product.name}. The shared drop film file was kept.`
+          : `Removed media from ${product.name}.`,
+      )
+    } catch (error) {
+      setAdminError(error instanceof Error ? error.message : 'Could not delete that media file.')
+    } finally {
+      setDeletingMediaKey('')
     }
   }
 
@@ -3538,12 +3585,29 @@ function DropFilmAdmin({
                     </div>
                     {media.length > 0 ? (
                       <div className="admin-product-media-thumbs">
-                        {media.slice(0, 5).map((item) => (
-                          <a href={item.url} key={item.id} rel="noreferrer" target="_blank">
-                            <ProductVisual media={item} product={resolvedProduct} />
-                            {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
-                          </a>
-                        ))}
+                        {media.map((item) => {
+                          const assetPathname = item.pathname ?? item.id
+                          const mediaKey = `${product.id}:${assetPathname}`
+
+                          return (
+                            <div className="admin-product-media-thumb" key={item.id}>
+                              <a href={item.url} rel="noreferrer" target="_blank">
+                                <ProductVisual media={item} product={resolvedProduct} />
+                                {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
+                              </a>
+                              <button
+                                aria-label={`Delete ${item.kind} for ${resolvedProduct.name}`}
+                                className="admin-media-delete-button"
+                                disabled={deletingMediaKey === mediaKey}
+                                onClick={() => void deleteProductMedia(resolvedProduct, item)}
+                                title="Delete media"
+                                type="button"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )
+                        })}
                       </div>
                     ) : null}
                   </article>
