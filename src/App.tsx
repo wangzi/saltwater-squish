@@ -26,6 +26,7 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  TriangleAlert,
   Turtle,
   Upload,
   Waves,
@@ -2529,6 +2530,7 @@ function DropFilmAdmin({
   onProductCommerceChanged,
   onProductDeleted,
   onProductMediaDeleted,
+  onProductMediaReconciled,
   onProductMediaRefresh,
   onProductRenamed,
   products,
@@ -2540,6 +2542,9 @@ function DropFilmAdmin({
   onProductCommerceChanged: (productId: string, price: number, inventoryQuantity: number) => void
   onProductDeleted: (productId: string) => void
   onProductMediaDeleted: (productId: string, assetPathname: string) => void
+  onProductMediaReconciled: (
+    removed: Array<{ pathname: string; productId: string }>,
+  ) => void
   onProductMediaRefresh: () => Promise<void>
   onProductRenamed: (productId: string, name: string) => void
   products: Product[]
@@ -2575,6 +2580,9 @@ function DropFilmAdmin({
   const [savingProductId, setSavingProductId] = useState('')
   const [deletingProductId, setDeletingProductId] = useState('')
   const [deletingMediaKey, setDeletingMediaKey] = useState('')
+  const [missingMediaKeys, setMissingMediaKeys] = useState<Set<string>>(() => new Set())
+  const [isCheckingMissingMedia, setIsCheckingMissingMedia] = useState(false)
+  const [isPruningMissingMedia, setIsPruningMissingMedia] = useState(false)
   const [taggingProductId, setTaggingProductId] = useState('')
   const [editingCommerceProductId, setEditingCommerceProductId] = useState('')
   const [editingPrice, setEditingPrice] = useState('')
@@ -2594,6 +2602,104 @@ function DropFilmAdmin({
     (total, product) => total + (productMediaByProduct[product.id]?.length ?? 0),
     0,
   )
+  const missingMediaCount = missingMediaKeys.size
+
+  const checkMissingMedia = useCallback(async () => {
+    if (!isAuthorized) {
+      setMissingMediaKeys(new Set())
+      return
+    }
+
+    setIsCheckingMissingMedia(true)
+
+    try {
+      const response = await fetch('/api/product-media/reconcile', {
+        body: JSON.stringify({ dryRun: true }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'POST',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        missing?: Array<{ pathname: string; productId: string }>
+      } | null
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Could not check for missing media files.')
+      }
+
+      setMissingMediaKeys(new Set(
+        (payload?.missing ?? []).map((item) => `${item.productId}:${item.pathname}`),
+      ))
+    } catch {
+      setMissingMediaKeys(new Set())
+    } finally {
+      setIsCheckingMissingMedia(false)
+    }
+  }, [adminPassword, isAuthorized])
+
+  const pruneMissingMedia = async () => {
+    if (missingMediaCount === 0) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${missingMediaCount} missing media reference${missingMediaCount === 1 ? '' : 's'} from product metadata?`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setIsPruningMissingMedia(true)
+    setAdminError('')
+    setAdminMessage('')
+
+    try {
+      const response = await fetch('/api/product-media/reconcile', {
+        body: JSON.stringify({ dryRun: false }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'POST',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        removed?: Array<{ pathname: string; productId: string }>
+      } | null
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Could not remove missing media references.')
+      }
+
+      const removed = payload?.removed ?? []
+      onProductMediaReconciled(removed)
+      setMissingMediaKeys(new Set())
+      setAdminMessage(
+        removed.length === 0
+          ? 'No missing media references were removed.'
+          : `Removed ${removed.length} missing media reference${removed.length === 1 ? '' : 's'}.`,
+      )
+    } catch (error) {
+      setAdminError(
+        error instanceof Error ? error.message : 'Could not remove missing media references.',
+      )
+    } finally {
+      setIsPruningMissingMedia(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isAuthorized) {
+      setMissingMediaKeys(new Set())
+      return
+    }
+
+    void checkMissingMedia()
+  }, [checkMissingMedia, isAuthorized, productMediaByProduct])
 
   const saveProductName = async (event: FormEvent<HTMLFormElement>, product: Product) => {
     event.preventDefault()
@@ -3397,16 +3503,35 @@ function DropFilmAdmin({
                 <span>
                   {uploadedProductMediaCount} hosted file
                   {uploadedProductMediaCount === 1 ? '' : 's'}
+                  {missingMediaCount > 0
+                    ? ` · ${missingMediaCount} missing`
+                    : isCheckingMissingMedia
+                      ? ' · checking files'
+                      : ''}
                 </span>
               </div>
-              <button
-                className="icon-button"
-                onClick={() => void onProductMediaRefresh()}
-                title="Refresh product media"
-                type="button"
-              >
-                <RefreshCw size={17} />
-              </button>
+              <div className="admin-product-media-library-actions">
+                {missingMediaCount > 0 ? (
+                  <button
+                    className="button ghost-button admin-prune-missing-button"
+                    disabled={isPruningMissingMedia || isCheckingMissingMedia}
+                    onClick={() => void pruneMissingMedia()}
+                    type="button"
+                  >
+                    <TriangleAlert size={15} />
+                    {isPruningMissingMedia ? 'Removing' : 'Remove missing'}
+                  </button>
+                ) : null}
+                <button
+                  className="icon-button"
+                  disabled={isCheckingMissingMedia || isPruningMissingMedia}
+                  onClick={() => void onProductMediaRefresh()}
+                  title="Refresh product media"
+                  type="button"
+                >
+                  <RefreshCw size={17} />
+                </button>
+              </div>
             </div>
 
             <div className="admin-product-media-list">
@@ -3590,19 +3715,38 @@ function DropFilmAdmin({
                         {media.map((item) => {
                           const assetPathname = item.pathname ?? item.id
                           const mediaKey = `${product.id}:${assetPathname}`
+                          const isMissing = missingMediaKeys.has(mediaKey)
 
                           return (
-                            <div className="admin-product-media-thumb" key={item.id}>
-                              <a href={item.url} rel="noreferrer" target="_blank">
+                            <div
+                              className={`admin-product-media-thumb${isMissing ? ' is-missing' : ''}`}
+                              key={item.id}
+                            >
+                              <a
+                                aria-label={
+                                  isMissing
+                                    ? `${item.kind} missing from blob storage`
+                                    : `Open ${item.kind}`
+                                }
+                                href={item.url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
                                 <ProductVisual media={item} product={resolvedProduct} />
                                 {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
+                                {isMissing ? (
+                                  <span className="admin-media-missing-badge">
+                                    <TriangleAlert aria-hidden="true" size={11} />
+                                    Missing
+                                  </span>
+                                ) : null}
                               </a>
                               <button
                                 aria-label={`Delete ${item.kind} for ${resolvedProduct.name}`}
                                 className="admin-media-delete-button"
                                 disabled={deletingMediaKey === mediaKey}
                                 onClick={() => void deleteProductMedia(resolvedProduct, item)}
-                                title="Delete media"
+                                title={isMissing ? 'Remove missing reference' : 'Delete media'}
                                 type="button"
                               >
                                 <X size={12} />
@@ -4291,6 +4435,40 @@ function App() {
     })
   }
 
+  const handleProductMediaReconciled = (
+    removed: Array<{ pathname: string; productId: string }>,
+  ) => {
+    if (removed.length === 0) {
+      return
+    }
+
+    const removedByProduct = removed.reduce<Record<string, Set<string>>>((groups, item) => {
+      const pathnames = groups[item.productId] ?? new Set<string>()
+      pathnames.add(item.pathname)
+      groups[item.productId] = pathnames
+      return groups
+    }, {})
+
+    setProductMediaByProduct((current) => {
+      let changed = false
+      const next = { ...current }
+
+      for (const [productId, pathnames] of Object.entries(removedByProduct)) {
+        const existingMedia = current[productId] ?? []
+        const nextMedia = existingMedia.filter(
+          (item) => !pathnames.has(item.pathname ?? item.id),
+        )
+
+        if (nextMedia.length !== existingMedia.length) {
+          next[productId] = nextMedia
+          changed = true
+        }
+      }
+
+      return changed ? next : current
+    })
+  }
+
   const updateCart = (productId: string, delta: number) => {
     setCheckoutError('')
     setCart((currentCart) => {
@@ -4632,6 +4810,7 @@ function App() {
             onProductCommerceChanged={handleProductCommerceChanged}
             onProductDeleted={handleProductDeleted}
             onProductMediaDeleted={handleProductMediaDeleted}
+            onProductMediaReconciled={handleProductMediaReconciled}
             onProductMediaRefresh={loadProductMedia}
             onProductRenamed={handleProductRenamed}
             products={products}
