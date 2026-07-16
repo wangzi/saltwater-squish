@@ -2528,6 +2528,7 @@ function DropFilmAdmin({
   onProductCategoriesChanged,
   onProductCommerceChanged,
   onProductDeleted,
+  onProductMediaDeleted,
   onProductMediaRefresh,
   onProductRenamed,
   products,
@@ -2538,6 +2539,7 @@ function DropFilmAdmin({
   onProductCategoriesChanged: (productId: string, categories: ProductCategory[]) => void
   onProductCommerceChanged: (productId: string, price: number, inventoryQuantity: number) => void
   onProductDeleted: (productId: string) => void
+  onProductMediaDeleted: (productId: string, assetPathname: string) => void
   onProductMediaRefresh: () => Promise<void>
   onProductRenamed: (productId: string, name: string) => void
   products: Product[]
@@ -2665,7 +2667,7 @@ function DropFilmAdmin({
         throw new Error(payload?.error ?? 'Could not delete that media file.')
       }
 
-      await onProductMediaRefresh()
+      onProductMediaDeleted(product.id, assetPathname)
       setAdminMessage(
         payload?.retainedBlob
           ? `Removed media from ${product.name}. The shared drop film file was kept.`
@@ -4271,6 +4273,24 @@ function App() {
     })
   }
 
+  const handleProductMediaDeleted = (productId: string, assetPathname: string) => {
+    setProductMediaByProduct((current) => {
+      const existingMedia = current[productId] ?? []
+      const nextMedia = existingMedia.filter(
+        (item) => (item.pathname ?? item.id) !== assetPathname,
+      )
+
+      if (nextMedia.length === existingMedia.length) {
+        return current
+      }
+
+      return {
+        ...current,
+        [productId]: nextMedia,
+      }
+    })
+  }
+
   const updateCart = (productId: string, delta: number) => {
     setCheckoutError('')
     setCart((currentCart) => {
@@ -4611,6 +4631,7 @@ function App() {
             onProductCategoriesChanged={handleProductCategoriesChanged}
             onProductCommerceChanged={handleProductCommerceChanged}
             onProductDeleted={handleProductDeleted}
+            onProductMediaDeleted={handleProductMediaDeleted}
             onProductMediaRefresh={loadProductMedia}
             onProductRenamed={handleProductRenamed}
             products={products}
