@@ -2534,6 +2534,7 @@ function DropFilmAdmin({
   onProductMediaDeleted,
   onProductMediaReconciled,
   onProductMediaRefresh,
+  onProductMediaUploaded,
   onProductRenamed,
   products,
   productMediaByProduct,
@@ -2548,6 +2549,7 @@ function DropFilmAdmin({
     removed: Array<{ pathname: string; productId: string }>,
   ) => void
   onProductMediaRefresh: () => Promise<void>
+  onProductMediaUploaded: (productId: string, media: ProductMedia[]) => void
   onProductRenamed: (productId: string, name: string) => void
   products: Product[]
   productMediaByProduct: ProductMediaByProduct
@@ -3253,28 +3255,7 @@ function DropFilmAdmin({
         const savedMedia = await saveProductMediaMetadata(group.product, uploadedAssets)
 
         if (savedMedia.length > 0) {
-          setProductMediaByProduct((current) => {
-            const productId = group.product.id
-            const existingMedia = current[productId] ?? []
-            const normalizedNew = savedMedia
-              .filter((item) => item.url && (item.kind === 'image' || item.kind === 'video'))
-              .map((item) => ({
-                ...item,
-                id: item.pathname ?? item.id ?? item.url,
-                productId,
-                skuName: item.skuName?.trim() || productSkuNameFromFileName(item.title ?? ''),
-              }))
-            const newPathnames = new Set(normalizedNew.map((item) => item.pathname ?? item.id))
-            const mergedMedia = [
-              ...normalizedNew,
-              ...existingMedia.filter((item) => !newPathnames.has(item.pathname ?? item.id)),
-            ].sort(compareProductMedia)
-
-            return {
-              ...current,
-              [productId]: mergedMedia,
-            }
-          })
+          onProductMediaUploaded(group.product.id, savedMedia)
         }
       }
 
@@ -4464,6 +4445,30 @@ function App() {
     })
   }
 
+  const handleProductMediaUploaded = (productId: string, media: ProductMedia[]) => {
+    setProductMediaByProduct((current) => {
+      const existingMedia = current[productId] ?? []
+      const normalizedNew = media
+        .filter((item) => item.url && (item.kind === 'image' || item.kind === 'video'))
+        .map((item) => ({
+          ...item,
+          id: item.pathname ?? item.id ?? item.url,
+          productId,
+          skuName: item.skuName?.trim() || productSkuNameFromFileName(item.title ?? ''),
+        }))
+      const newPathnames = new Set(normalizedNew.map((item) => item.pathname ?? item.id))
+      const mergedMedia = [
+        ...normalizedNew,
+        ...existingMedia.filter((item) => !newPathnames.has(item.pathname ?? item.id)),
+      ].sort(compareProductMedia)
+
+      return {
+        ...current,
+        [productId]: mergedMedia,
+      }
+    })
+  }
+
   const handleProductMediaReconciled = (
     removed: Array<{ pathname: string; productId: string }>,
   ) => {
@@ -4841,6 +4846,7 @@ function App() {
             onProductMediaDeleted={handleProductMediaDeleted}
             onProductMediaReconciled={handleProductMediaReconciled}
             onProductMediaRefresh={loadProductMedia}
+            onProductMediaUploaded={handleProductMediaUploaded}
             onProductRenamed={handleProductRenamed}
             products={products}
             productMediaByProduct={productMediaByProduct}
