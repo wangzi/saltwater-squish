@@ -511,6 +511,23 @@ function normalizeDropFilms(response: DropFilmsResponse) {
   return uploadedFilms && uploadedFilms.length > 0 ? uploadedFilms : placeholderDropFilms
 }
 
+function compareProductMedia(left: ProductMedia, right: ProductMedia) {
+  const leftOrder = typeof left.sortOrder === 'number' ? left.sortOrder : Number.MAX_SAFE_INTEGER
+  const rightOrder = typeof right.sortOrder === 'number' ? right.sortOrder : Number.MAX_SAFE_INTEGER
+
+  if (leftOrder !== rightOrder) {
+    return leftOrder - rightOrder
+  }
+
+  if (left.kind !== right.kind) {
+    return left.kind === 'image' ? -1 : 1
+  }
+
+  const leftTime = left.uploadedAt ? new Date(left.uploadedAt).getTime() : 0
+  const rightTime = right.uploadedAt ? new Date(right.uploadedAt).getTime() : 0
+  return rightTime - leftTime
+}
+
 function normalizeProductMedia(response: ProductMediaResponse): ProductMediaByProduct {
   const mediaByProduct = response.mediaByProduct ?? {}
 
@@ -525,22 +542,7 @@ function normalizeProductMedia(response: ProductMediaResponse): ProductMediaByPr
           productId,
           skuName: item.skuName?.trim() || productSkuNameFromFileName(item.title ?? ''),
         }))
-        .sort((left, right) => {
-          const leftOrder = typeof left.sortOrder === 'number' ? left.sortOrder : Number.MAX_SAFE_INTEGER
-          const rightOrder = typeof right.sortOrder === 'number' ? right.sortOrder : Number.MAX_SAFE_INTEGER
-
-          if (leftOrder !== rightOrder) {
-            return leftOrder - rightOrder
-          }
-
-          if (left.kind !== right.kind) {
-            return left.kind === 'image' ? -1 : 1
-          }
-
-          const leftTime = left.uploadedAt ? new Date(left.uploadedAt).getTime() : 0
-          const rightTime = right.uploadedAt ? new Date(right.uploadedAt).getTime() : 0
-          return rightTime - leftTime
-        }),
+        .sort(compareProductMedia),
     ]),
   )
 }
@@ -3053,7 +3055,7 @@ function DropFilmAdmin({
   const saveProductMediaMetadata = async (
     product: Product,
     uploads: Array<{ blob: PutBlobResult; file: File; sortOrder: number }>,
-  ) => {
+  ): Promise<ProductMedia[]> => {
     const response = await fetch('/api/product-media/metadata', {
       method: 'POST',
       headers: {
@@ -3077,6 +3079,9 @@ function DropFilmAdmin({
       const payload = (await response.json().catch(() => null)) as { error?: string } | null
       throw new Error(payload?.error ?? 'The media uploaded, but its metadata was not saved.')
     }
+
+    const payload = (await response.json().catch(() => null)) as { media?: ProductMedia[] } | null
+    return Array.isArray(payload?.media) ? payload.media : []
   }
 
   const uploadFilm = async (event: FormEvent<HTMLFormElement>) => {
@@ -3245,10 +3250,34 @@ function DropFilmAdmin({
           completedFiles += 1
         }
 
-        await saveProductMediaMetadata(group.product, uploadedAssets)
+        const savedMedia = await saveProductMediaMetadata(group.product, uploadedAssets)
+
+        if (savedMedia.length > 0) {
+          setProductMediaByProduct((current) => {
+            const productId = group.product.id
+            const existingMedia = current[productId] ?? []
+            const normalizedNew = savedMedia
+              .filter((item) => item.url && (item.kind === 'image' || item.kind === 'video'))
+              .map((item) => ({
+                ...item,
+                id: item.pathname ?? item.id ?? item.url,
+                productId,
+                skuName: item.skuName?.trim() || productSkuNameFromFileName(item.title ?? ''),
+              }))
+            const newPathnames = new Set(normalizedNew.map((item) => item.pathname ?? item.id))
+            const mergedMedia = [
+              ...normalizedNew,
+              ...existingMedia.filter((item) => !newPathnames.has(item.pathname ?? item.id)),
+            ].sort(compareProductMedia)
+
+            return {
+              ...current,
+              [productId]: mergedMedia,
+            }
+          })
+        }
       }
 
-      await onProductMediaRefresh()
       setAdminMessage(
         `${pendingProductMediaFiles.length} files organized across ${pendingProductGroups.length} SKU${pendingProductGroups.length === 1 ? '' : 's'}.`,
       )
