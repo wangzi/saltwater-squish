@@ -512,15 +512,15 @@ function normalizeDropFilms(response: DropFilmsResponse) {
 }
 
 function compareProductMedia(left: ProductMedia, right: ProductMedia) {
+  if (left.kind !== right.kind) {
+    return left.kind === 'image' ? -1 : 1
+  }
+
   const leftOrder = typeof left.sortOrder === 'number' ? left.sortOrder : Number.MAX_SAFE_INTEGER
   const rightOrder = typeof right.sortOrder === 'number' ? right.sortOrder : Number.MAX_SAFE_INTEGER
 
   if (leftOrder !== rightOrder) {
     return leftOrder - rightOrder
-  }
-
-  if (left.kind !== right.kind) {
-    return left.kind === 'image' ? -1 : 1
   }
 
   const leftTime = left.uploadedAt ? new Date(left.uploadedAt).getTime() : 0

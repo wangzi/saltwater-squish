@@ -117,15 +117,15 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       }
 
       mediaByProduct[metadata.productId] = metadata.assets.sort((left, right) => {
+        if (left.kind !== right.kind) {
+          return left.kind === 'image' ? -1 : 1
+        }
+
         const leftOrder = typeof left.sortOrder === 'number' ? left.sortOrder : Number.MAX_SAFE_INTEGER
         const rightOrder = typeof right.sortOrder === 'number' ? right.sortOrder : Number.MAX_SAFE_INTEGER
 
         if (leftOrder !== rightOrder) {
           return leftOrder - rightOrder
-        }
-
-        if (left.kind !== right.kind) {
-          return left.kind === 'image' ? -1 : 1
         }
 
         const leftTime = left.uploadedAt ? new Date(left.uploadedAt).getTime() : 0
