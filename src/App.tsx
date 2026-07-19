@@ -4104,9 +4104,8 @@ function App() {
     setDropFilmsStatus('loading')
 
     try {
-      const endpoint = isAdminRoute ? `/api/drop-films?v=${Date.now()}` : '/api/drop-films'
-      const response = await fetch(endpoint, {
-        cache: isAdminRoute ? 'no-store' : 'default',
+      const response = await fetch('/api/drop-films', {
+        cache: 'no-store',
         headers: { accept: 'application/json' },
       })
 
@@ -4121,15 +4120,14 @@ function App() {
       setDropFilms(placeholderDropFilms)
       setDropFilmsStatus('error')
     }
-  }, [isAdminRoute])
+  }, [])
 
   const loadProductMedia = useCallback(async () => {
     setProductMediaStatus('loading')
 
     try {
-      const endpoint = isAdminRoute ? `/api/product-media?v=${Date.now()}` : '/api/product-media'
-      const response = await fetch(endpoint, {
-        cache: isAdminRoute ? 'no-store' : 'default',
+      const response = await fetch('/api/product-media', {
+        cache: 'no-store',
         headers: { accept: 'application/json' },
       })
 
@@ -4169,7 +4167,7 @@ function App() {
       )
       setProductMediaStatus('error')
     }
-  }, [isAdminRoute])
+  }, [])
 
   const loadShopifyCatalog = useCallback(async () => {
     setShopifyStatus('loading')

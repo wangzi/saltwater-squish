@@ -56,7 +56,7 @@ async function readMetadata(url: string) {
 }
 
 export default async function handler(_request: unknown, response: ApiResponse) {
-  response.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+  response.setHeader('Cache-Control', 'no-store')
 
   try {
     const [filmResult, metadataResult] = await Promise.all([
