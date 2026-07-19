@@ -96,12 +96,8 @@ async function readMetadata(url: string) {
   }
 }
 
-export default async function handler(request: ApiRequest, response: ApiResponse) {
-  const bypassCache = typeof request.url === 'string' && request.url.includes('v=')
-  response.setHeader(
-    'Cache-Control',
-    bypassCache ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=300',
-  )
+export default async function handler(_request: ApiRequest, response: ApiResponse) {
+  response.setHeader('Cache-Control', 'no-store')
 
   try {
     const metadataResult = await list({ limit: 100, prefix: 'product-media-metadata/' })
