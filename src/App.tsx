@@ -5,7 +5,6 @@ import {
   Check,
   ExternalLink,
   Film,
-  FishSymbol,
   Heart,
   Lock,
   Maximize2,
@@ -48,12 +47,6 @@ import {
 import './App.css'
 import brandMark from './assets/optimized/saltwater-squish-mark.webp?no-inline'
 import productSheet from './assets/optimized/product-sheet.webp'
-import blueDaddyShark from './assets/generated/blue-daddy-shark.webp'
-import pinkShark from './assets/generated/pink-shark.webp'
-import purpleMamaShark from './assets/generated/purple-mama-shark.webp'
-import reefFishAqua from './assets/optimized/reef-fish-aqua.png'
-import reefFishCoral from './assets/optimized/reef-fish-coral.png'
-import reefFishSun from './assets/optimized/reef-fish-sun.png'
 import turtleMascot from './assets/generated/sea-turtle-topdown-v2.webp'
 import {
   catalogProducts,
@@ -373,6 +366,16 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, '')
 
   return slug || 'drop-film'
+}
+
+function productPageHash(productId: string) {
+  return `#product/${productId}`
+}
+
+function parseProductRouteId(hash: string) {
+  const match = hash.match(/^#product\/([^/?]+)/)
+
+  return match?.[1] ?? null
 }
 
 function fileExtensionFromName(fileName: string) {
@@ -720,23 +723,27 @@ function ProductVisual({
 }
 
 function ProductMediaGallery({
+  layout = 'card',
   media,
   product,
 }: {
+  layout?: 'card' | 'page'
   media: ProductMedia[]
   product: Product
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isHoverPreviewing, setIsHoverPreviewing] = useState(false)
+  const isPageLayout = layout === 'page'
   const leadImage = media.find((item) => item.kind === 'image')
   const firstVideoIndex = media.findIndex((item) => item.kind === 'video')
-  const displayedIndex = isHoverPreviewing && firstVideoIndex >= 0
+  const displayedIndex = !isPageLayout && isHoverPreviewing && firstVideoIndex >= 0
     ? firstVideoIndex
     : activeIndex
   const activeMedia = media[displayedIndex]
 
   const startHoverPreview = () => {
     if (
+      isPageLayout ||
       firstVideoIndex < 0 ||
       !window.matchMedia('(hover: hover) and (pointer: fine)').matches ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -756,7 +763,59 @@ function ProductMediaGallery({
   }, [activeIndex, media.length])
 
   if (media.length === 0) {
-    return <ProductVisual product={product} />
+    return (
+      <ProductVisual
+        className={isPageLayout ? 'product-page-media-main' : undefined}
+        product={product}
+      />
+    )
+  }
+
+  const mediaStrip = media.length > 1 ? (
+    <div
+      aria-label={`${product.name} media`}
+      className={isPageLayout ? 'product-page-media-strip' : 'product-media-strip'}
+    >
+      {media.map((item, index) => (
+        <button
+          aria-label={`Show ${item.kind} ${index + 1} for ${product.name}`}
+          aria-pressed={activeIndex === index}
+          className="product-media-thumb"
+          key={item.id}
+          onClick={(event) => {
+            event.stopPropagation()
+            setIsHoverPreviewing(false)
+            setActiveIndex(index)
+          }}
+          type="button"
+        >
+          <ProductVisual
+            imageSizes="96px"
+            media={item.kind === 'video' ? leadImage ?? item : item}
+            product={product}
+          />
+          {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
+        </button>
+      ))}
+    </div>
+  ) : null
+
+  if (isPageLayout) {
+    return (
+      <div className="product-media-gallery product-media-gallery-page">
+        <div className="product-page-media-stage">
+          <ProductVisual
+            controls={activeMedia?.kind === 'video'}
+            className="product-page-media-main"
+            media={activeMedia}
+            imageSizes="(max-width: 720px) 100vw, 42vw"
+            poster={leadImage?.url}
+            product={product}
+          />
+        </div>
+        {mediaStrip}
+      </div>
+    )
   }
 
   return (
@@ -784,30 +843,7 @@ function ProductMediaGallery({
           </span>
         ) : null}
       </div>
-      {media.length > 1 ? (
-        <div className="product-media-strip" aria-label={`${product.name} media`}>
-          {media.map((item, index) => (
-            <button
-              aria-label={`Show ${item.kind} ${index + 1} for ${product.name}`}
-              aria-pressed={activeIndex === index}
-              className="product-media-thumb"
-              key={item.id}
-              onClick={() => {
-                setIsHoverPreviewing(false)
-                setActiveIndex(index)
-              }}
-              type="button"
-            >
-              <ProductVisual
-                imageSizes="96px"
-                media={item.kind === 'video' ? leadImage ?? item : item}
-                product={product}
-              />
-              {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {mediaStrip}
     </div>
   )
 }
@@ -1471,346 +1507,6 @@ function drawCreatureTrail(
     },
     actor.brush,
     velocity,
-  )
-}
-
-function DropFilmsSection({
-  films,
-  products,
-  status,
-}: {
-  films: DropFilm[]
-  products: Product[]
-  status: 'idle' | 'loading' | 'ready' | 'error'
-}) {
-  const [activeFilmIndex, setActiveFilmIndex] = useState(0)
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null)
-  const carouselRef = useRef<HTMLDivElement | null>(null)
-  const dragStartXRef = useRef<number | null>(null)
-  const dragDeltaXRef = useRef(0)
-  const dragFrameRef = useRef<number | null>(null)
-  const suppressCardClickRef = useRef(false)
-  const hasUploadedFilms = films.some((film) => film.source === 'uploaded')
-  const filmStorySummaries = [
-    'A tiny texture study in sea-glass gel.',
-    'Watch the slow rise return like a tide.',
-    'Pearl beads, soft pops, and a little shine.',
-    'A coastal edit for gifting in small waves.',
-    'A quick look at the freebie-sized squeeze.',
-  ]
-
-  useEffect(() => {
-    setActiveFilmIndex((current) => films.length === 0 ? 0 : Math.min(current, films.length - 1))
-    setActiveVideoId(null)
-  }, [films.length])
-
-  useEffect(() => {
-    return () => {
-      if (dragFrameRef.current !== null) {
-        window.cancelAnimationFrame(dragFrameRef.current)
-      }
-    }
-  }, [])
-
-  const moveCarousel = (direction: 'back' | 'forward') => {
-    if (films.length < 2) {
-      return
-    }
-
-    setActiveVideoId(null)
-    setActiveFilmIndex((current) => (
-      direction === 'forward'
-        ? (current + 1) % films.length
-        : (current - 1 + films.length) % films.length
-    ))
-  }
-
-  const relativeFilmIndex = (index: number) => {
-    if (films.length < 2) {
-      return 0
-    }
-
-    let offset = (index - activeFilmIndex + films.length) % films.length
-
-    if (offset > films.length / 2) {
-      offset -= films.length
-    }
-
-    return offset
-  }
-
-  const visibleFilms = films
-    .map((film, index) => ({ film, index, relativeIndex: relativeFilmIndex(index) }))
-    .filter(({ relativeIndex }) => Math.abs(relativeIndex) <= 2)
-
-  const applyCarouselDrag = (deltaX: number, dragging: boolean) => {
-    const carousel = carouselRef.current
-
-    if (!carousel) {
-      return
-    }
-
-    carousel.style.setProperty('--film-drag-x', `${deltaX}px`)
-
-    if (dragging) {
-      carousel.dataset.dragging = 'true'
-    } else {
-      delete carousel.dataset.dragging
-    }
-  }
-
-  const resetCarouselDrag = () => {
-    if (dragFrameRef.current !== null) {
-      window.cancelAnimationFrame(dragFrameRef.current)
-      dragFrameRef.current = null
-    }
-
-    dragDeltaXRef.current = 0
-    applyCarouselDrag(0, false)
-  }
-
-  const handleFilmCarouselKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
-      return
-    }
-
-    event.preventDefault()
-    moveCarousel(event.key === 'ArrowRight' ? 'forward' : 'back')
-  }
-
-  const handleFilmCarouselPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-
-    if (target.closest('video, button, a, input')) {
-      return
-    }
-
-    dragStartXRef.current = event.clientX
-    dragDeltaXRef.current = 0
-    suppressCardClickRef.current = false
-    event.currentTarget.setPointerCapture(event.pointerId)
-    applyCarouselDrag(0, true)
-  }
-
-  const handleFilmCarouselPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const startX = dragStartXRef.current
-
-    if (startX === null) {
-      return
-    }
-
-    const maxDrag = Math.min(140, event.currentTarget.clientWidth * 0.28)
-    const deltaX = Math.max(-maxDrag, Math.min(maxDrag, event.clientX - startX))
-    dragDeltaXRef.current = deltaX
-
-    if (Math.abs(deltaX) > 7) {
-      suppressCardClickRef.current = true
-    }
-
-    if (dragFrameRef.current !== null) {
-      return
-    }
-
-    dragFrameRef.current = window.requestAnimationFrame(() => {
-      dragFrameRef.current = null
-      applyCarouselDrag(dragDeltaXRef.current, true)
-    })
-  }
-
-  const finishFilmCarouselPointer = (
-    event: PointerEvent<HTMLDivElement>,
-    cancelled = false,
-  ) => {
-    const startX = dragStartXRef.current
-    dragStartXRef.current = null
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-
-    if (startX === null) {
-      resetCarouselDrag()
-      return
-    }
-
-    const deltaX = dragDeltaXRef.current || event.clientX - startX
-    resetCarouselDrag()
-
-    if (suppressCardClickRef.current) {
-      window.setTimeout(() => {
-        suppressCardClickRef.current = false
-      }, 0)
-    }
-
-    if (cancelled || Math.abs(deltaX) < 44) {
-      return
-    }
-
-    moveCarousel(deltaX < 0 ? 'forward' : 'back')
-  }
-
-  return (
-    <section className="films-section" id="films" aria-labelledby="films-title">
-      <div className="film-carousel-heading">
-        <h2 aria-label="More stories for you." id="films-title">
-          <KineticText lines={['More stories', 'for you.']} />
-        </h2>
-        <p aria-live="polite" className="sr-only">
-          {status === 'loading'
-            ? 'Loading drop films.'
-            : films[activeFilmIndex]
-              ? `${hasUploadedFilms ? 'Live' : 'Preview'} story ${activeFilmIndex + 1} of ${films.length}: ${films[activeFilmIndex].title}.`
-              : 'No drop films are available.'}
-        </p>
-      </div>
-      <div
-        aria-label="Drop film stories. Use arrow keys or swipe to navigate."
-        className="film-carousel"
-        data-no-splash
-        onKeyDown={handleFilmCarouselKeyDown}
-        onPointerCancel={(event) => finishFilmCarouselPointer(event, true)}
-        onPointerDown={handleFilmCarouselPointerDown}
-        onPointerMove={handleFilmCarouselPointerMove}
-        onPointerUp={finishFilmCarouselPointer}
-        ref={carouselRef}
-        role="region"
-        tabIndex={0}
-      >
-        {visibleFilms.map(({ film, index, relativeIndex }) => {
-          const filmProduct = products[index % products.length] ?? catalogProducts[0]
-          const filmDepth = Math.abs(relativeIndex)
-          const isActive = relativeIndex === 0
-          const isVideoActive = Boolean(film.url && isActive && activeVideoId === film.id)
-          const storySummary = film.source === 'uploaded'
-            ? 'Fresh from the latest drop, ready to preview.'
-            : filmStorySummaries[index % filmStorySummaries.length]
-          const filmPositionStyle = {
-            '--film-opacity': filmDepth === 2 ? 0.74 : 1,
-            '--film-rotation': `${relativeIndex * 6}deg`,
-            '--film-scale': 1 - filmDepth * 0.045,
-            '--film-x': `${relativeIndex * 66}%`,
-            '--film-x-mobile': `${relativeIndex * 6}%`,
-            '--film-x-tablet': `${relativeIndex * 28}%`,
-            '--film-y': `${filmDepth === 0 ? 0 : filmDepth === 1 ? 30 : 88}px`,
-            zIndex: 10 - filmDepth,
-          } as CSSProperties
-
-          return (
-            <article
-              aria-hidden={!isActive}
-              aria-label={`Film ${index + 1} of ${films.length}: ${film.title}`}
-              className="film-story-card"
-              data-film-active={isActive}
-              data-film-offset={relativeIndex}
-              id={`film-story-${slugify(film.id)}`}
-              key={film.id}
-              onClick={() => {
-                if (suppressCardClickRef.current) {
-                  suppressCardClickRef.current = false
-                  return
-                }
-
-                if (!isActive && Math.abs(relativeIndex) <= 2) {
-                  setActiveVideoId(null)
-                  setActiveFilmIndex(index)
-                } else if (isActive && film.url) {
-                  setActiveVideoId(film.id)
-                }
-              }}
-              style={filmPositionStyle}
-            >
-              <div
-                className="film-card-media"
-                onMouseEnter={() => {
-                  if (isActive && film.url) {
-                    setActiveVideoId(film.id)
-                  }
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.querySelector('video')?.pause()
-                }}
-              >
-                <div
-                  aria-hidden={isVideoActive}
-                  aria-label={isVideoActive ? undefined : film.title}
-                  className="film-thumb"
-                  role={isVideoActive ? undefined : 'img'}
-                >
-                  <ProductVisual className="film-thumb-visual" product={filmProduct} />
-                  {film.url && isActive && !isVideoActive ? (
-                    <button
-                      aria-label={`Play ${film.title}`}
-                      className="film-play-badge"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setActiveVideoId(film.id)
-                      }}
-                      type="button"
-                    >
-                      <Play size={20} />
-                    </button>
-                  ) : !film.url || !isActive ? (
-                    <span className="film-play-badge">
-                      <Play size={20} />
-                    </span>
-                  ) : null}
-                </div>
-                {isVideoActive ? (
-                  <video
-                    aria-label={film.title}
-                    autoPlay
-                    controls
-                    loop
-                    muted
-                    playsInline
-                    preload="none"
-                    src={film.url}
-                    tabIndex={0}
-                  />
-                ) : null}
-              </div>
-              <div className="film-card-copy">
-                <h3 className="film-card-title">{film.title}</h3>
-                <p className="film-card-summary">{storySummary}</p>
-                <span className="film-card-meta">
-                  Watch {film.durationSeconds ? `${Math.round(film.durationSeconds)} sec` : '30 sec'}
-                  <ArrowRight aria-hidden="true" size={13} />
-                </span>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-      <div aria-label="Drop film carousel navigation" className="film-carousel-controls" data-no-splash role="group">
-        <button
-          aria-label="Previous film story"
-          className="film-carousel-button"
-          disabled={films.length < 2}
-          onClick={() => moveCarousel('back')}
-          type="button"
-        >
-          <ArrowLeft size={22} />
-        </button>
-        <span aria-hidden="true" className="film-carousel-position">
-          <strong>{String(activeFilmIndex + 1).padStart(2, '0')}</strong>
-          <span>/</span>
-          {String(films.length).padStart(2, '0')}
-        </span>
-        <button
-          aria-label="Next film story"
-          className="film-carousel-button"
-          disabled={films.length < 2}
-          onClick={() => moveCarousel('forward')}
-          type="button"
-        >
-          <ArrowRight size={22} />
-        </button>
-      </div>
-    </section>
   )
 }
 
@@ -2564,7 +2260,7 @@ function DropFilmAdmin({
           Media admin
         </p>
         <h1 id="film-admin-title">Upload product media and drop films.</h1>
-        <a className="button ghost-button" href="#films">
+        <a className="button ghost-button" href="#top">
           Back to storefront
         </a>
       </div>
@@ -3058,6 +2754,28 @@ function DropFilmAdmin({
   )
 }
 
+function CoastCareNote({ className }: { className?: string }) {
+  return (
+    <div className={className ? `about-coast-note ${className}` : 'about-coast-note'}>
+      <Heart aria-hidden="true" size={22} />
+      <div>
+        <strong>Taking care of our coast</strong>
+        <p>
+          We set aside a portion of every sale for environmental giving through{' '}
+          <a href="https://www.onepercentfortheplanet.org/" rel="noreferrer" target="_blank">
+            1% for the Planet <ExternalLink size={14} />
+          </a>{' '}
+          and{' '}
+          <a href="https://www.seahugger.org/" rel="noreferrer" target="_blank">
+            Sea Hugger <ExternalLink size={14} />
+          </a>
+          .
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function AboutSection() {
   return (
     <section className="about-section" id="about" aria-labelledby="about-title">
@@ -3082,31 +2800,7 @@ function AboutSection() {
             </p>
           </div>
 
-          <blockquote className="about-squish-test">
-            <span>Our house rule</span>
-            <p>
-              If it doesn't pass the official Ira-and-Joni squish test, it doesn't make it onto the
-              shelf.
-            </p>
-          </blockquote>
-
-          <div className="about-coast-note">
-            <Heart aria-hidden="true" size={22} />
-            <div>
-              <strong>Taking care of our coast</strong>
-              <p>
-                We set aside a portion of every sale for environmental giving through{' '}
-                <a href="https://www.onepercentfortheplanet.org/" rel="noreferrer" target="_blank">
-                  1% for the Planet <ExternalLink size={14} />
-                </a>{' '}
-                and{' '}
-                <a href="https://www.seahugger.org/" rel="noreferrer" target="_blank">
-                  Sea Hugger <ExternalLink size={14} />
-                </a>
-                .
-              </p>
-            </div>
-          </div>
+          <CoastCareNote />
 
           <div className="about-signature">
             <span>Thanks for squishing with us,</span>
@@ -3209,6 +2903,75 @@ const policyCopy = {
   sections: { body: string; heading: string }[]
   title: string
 }>
+
+function ProductPage({
+  media,
+  onAddToCart,
+  product,
+}: {
+  media: ProductMedia[]
+  onAddToCart: (product: Product, event: MouseEvent<HTMLButtonElement>) => void
+  product: Product
+}) {
+  const isPurchasable = Boolean(
+    product.price !== null &&
+    product.inventoryQuantity !== 0 &&
+    (!product.shopifyVariantId || product.availableForSale !== false),
+  )
+  const buttonLabel = product.inventoryQuantity === 0 ||
+    (product.shopifyVariantId && product.availableForSale === false)
+    ? 'Sold out'
+    : 'Add to cart'
+  const inventoryCopy = typeof product.inventoryQuantity === 'number' &&
+    product.inventoryQuantity > 0
+    ? `only ${Math.floor(product.inventoryQuantity)} left`
+    : null
+
+  return (
+    <section
+      aria-labelledby={`product-page-${product.id}-title`}
+      className="product-page"
+      id={`product-${product.id}`}
+    >
+      <a className="product-page-back" href="#shop">
+        <ArrowLeft size={16} />
+        Back to shop
+      </a>
+
+      <div className="product-page-inner">
+        <div className="product-page-media">
+          <ProductMediaGallery layout="page" media={media} product={product} />
+        </div>
+
+        <div className="product-page-copy">
+          <p className="eyebrow">{product.tag}</p>
+          <h1 id={`product-page-${product.id}-title`}>{product.name}</h1>
+          <p className="product-page-subtitle">{product.subtitle}</p>
+          <p className="product-page-price">
+            {product.price === null ? 'Price pending' : currency.format(product.price)}
+          </p>
+          <p className="product-page-description">{product.description}</p>
+          <button
+            aria-label={`${buttonLabel}: ${product.name}${inventoryCopy ? `, ${inventoryCopy}` : ''}`}
+            className="button product-button product-page-button"
+            disabled={!isPurchasable}
+            onClick={(event) => onAddToCart(product, event)}
+            type="button"
+          >
+            <span className="product-button-action">
+              <Plus size={17} />
+              {buttonLabel}
+            </span>
+            {isPurchasable && inventoryCopy ? (
+              <span className="product-button-inventory">{inventoryCopy}</span>
+            ) : null}
+          </button>
+          <CoastCareNote className="product-page-coast-note" />
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function PolicyModal({ kind, onClose }: { kind: PolicyKind; onClose: () => void }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -3326,7 +3089,6 @@ function App() {
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [products, setProducts] = useState<Product[]>(catalogProducts)
   const [dropFilms, setDropFilms] = useState<DropFilm[]>(placeholderDropFilms)
-  const [dropFilmsStatus, setDropFilmsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [productMediaByProduct, setProductMediaByProduct] = useState<ProductMediaByProduct>({})
   const [productMediaStatus, setProductMediaStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [shopifyStatus, setShopifyStatus] = useState<
@@ -3359,8 +3121,6 @@ function App() {
   }, [themeMode])
 
   const loadDropFilms = useCallback(async () => {
-    setDropFilmsStatus('loading')
-
     try {
       const endpoint = isAdminRoute ? `/api/drop-films?v=${Date.now()}` : '/api/drop-films'
       const response = await fetch(endpoint, {
@@ -3374,10 +3134,8 @@ function App() {
 
       const data = (await response.json()) as DropFilmsResponse
       setDropFilms(normalizeDropFilms(data))
-      setDropFilmsStatus('ready')
     } catch {
       setDropFilms(placeholderDropFilms)
-      setDropFilmsStatus('error')
     }
   }, [isAdminRoute])
 
@@ -3482,17 +3240,15 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const loadStorefrontMedia = () => {
-      void Promise.all([loadDropFilms(), loadProductMedia(), loadShopifyCatalog()])
-    }
-
     if (isAdminRoute) {
       void loadDropFilms()
       void loadProductMedia()
       return
     }
 
-    return scheduleIdleTask(loadStorefrontMedia)
+    return scheduleIdleTask(() => {
+      void Promise.all([loadProductMedia(), loadShopifyCatalog()])
+    })
   }, [isAdminRoute, loadDropFilms, loadProductMedia, loadShopifyCatalog])
 
   useEffect(() => {
@@ -3509,7 +3265,7 @@ function App() {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      if (!hashRoute || hashRoute === '#top') {
+      if (!hashRoute || hashRoute === '#top' || hashRoute.startsWith('#product/')) {
         window.scrollTo({ behavior: 'auto', top: 0 })
         return
       }
@@ -3618,6 +3374,17 @@ function App() {
       }),
     [productMediaByProduct, products],
   )
+
+  const activeProductId = useMemo(() => parseProductRouteId(hashRoute), [hashRoute])
+
+  const activeProduct = useMemo(
+    () => storefrontProducts.find((product) => product.id === activeProductId) ?? null,
+    [activeProductId, storefrontProducts],
+  )
+
+  const openProductPage = useCallback((product: Product) => {
+    window.location.hash = productPageHash(product.id)
+  }, [])
 
   const filteredProducts = useMemo(() => {
     return storefrontProducts.filter((product) =>
@@ -3983,10 +3750,6 @@ function App() {
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
           </a>
-          <a href="#films">
-            <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
-            Films
-          </a>
           <a aria-current={hashRoute === '#about' ? 'location' : undefined} href="#about">
             <span aria-hidden="true" className="nav-icon nav-icon-about"><Waves size={15} /></span>
             About
@@ -4028,10 +3791,6 @@ function App() {
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
           </a>
-          <a href="#films" onClick={() => setMobileNavOpen(false)}>
-            <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
-            Films
-          </a>
           <a
             aria-current={hashRoute === '#about' ? 'location' : undefined}
             href="#about"
@@ -4058,19 +3817,17 @@ function App() {
             products={products}
             productMediaByProduct={productMediaByProduct}
           />
+        ) : activeProduct ? (
+          <ProductPage
+            media={productMediaByProduct[activeProduct.id] ?? []}
+            onAddToCart={addToCart}
+            product={activeProduct}
+          />
         ) : (
           <>
         <section className="hero-section">
           <div className="hero-tint" />
-          <div aria-hidden="true" className="hero-story-lines">
-            <span>Half Moon Bay</span>
-            <span>California coast</span>
-          </div>
           <div className="hero-content">
-            <p className="eyebrow">
-              <Waves size={17} />
-              A Half Moon Bay tide tale
-            </p>
             <h1 aria-label="Saltwater Squish">
               <KineticText lines={['Saltwater', 'Squish']} tone="lagoon" />
             </h1>
@@ -4143,14 +3900,32 @@ function App() {
 
               return (
                 <article className="product-card" key={product.id}>
-                  <ProductMediaGallery media={productMediaByProduct[product.id] ?? []} product={product} />
+                  <div
+                    className="product-card-media"
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest('button, video')) {
+                        return
+                      }
+
+                      openProductPage(product)
+                    }}
+                  >
+                    <ProductMediaGallery media={productMediaByProduct[product.id] ?? []} product={product} />
+                  </div>
                   <div className="product-card-body">
-                    <div className="product-meta">
-                      <strong>
-                        {product.price === null ? 'Price pending' : currency.format(product.price)}
-                      </strong>
-                    </div>
-                    <h3>{product.name}</h3>
+                    <button
+                      aria-label={`View details for ${product.name}`}
+                      className="product-card-title-button"
+                      onClick={() => openProductPage(product)}
+                      type="button"
+                    >
+                      <div className="product-meta">
+                        <strong>
+                          {product.price === null ? 'Price pending' : currency.format(product.price)}
+                        </strong>
+                      </div>
+                      <h3>{product.name}</h3>
+                    </button>
                     <button
                       aria-label={`${buttonLabel}: ${product.name}${inventoryCopy ? `, ${inventoryCopy}` : ''}`}
                       className="button product-button"
@@ -4173,14 +3948,6 @@ function App() {
           </div>
         </section>
 
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-sand-water"
-          data-shoreline
-        />
-
-        <DropFilmsSection films={dropFilms} products={storefrontProducts} status={dropFilmsStatus} />
-
         <AboutSection />
           </>
         )}
@@ -4197,45 +3964,6 @@ function App() {
             <span className="footer-bubble footer-bubble-four" />
             <span className="footer-bubble footer-bubble-five" />
             <span className="footer-bubble footer-bubble-six" />
-            <span className="footer-swimmer footer-swimmer-one">
-              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
-            </span>
-            <span className="footer-swimmer footer-swimmer-two">
-              <img alt="" decoding="async" loading="lazy" src={reefFishAqua} />
-            </span>
-            <span className="footer-swimmer footer-swimmer-three is-reverse">
-              <img alt="" decoding="async" loading="lazy" src={reefFishSun} />
-            </span>
-            <span className="footer-shark-family">
-              <img
-                alt=""
-                className="footer-daddy-shark"
-                decoding="async"
-                loading="lazy"
-                src={blueDaddyShark}
-              />
-              <img
-                alt=""
-                className="footer-mama-shark"
-                decoding="async"
-                loading="lazy"
-                src={purpleMamaShark}
-              />
-              <img
-                alt=""
-                className="footer-baby-shark"
-                decoding="async"
-                loading="lazy"
-                src={pinkShark}
-              />
-            </span>
-            <span className="footer-swimmer footer-swimmer-five">
-              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
-            </span>
-          </div>
-          <div className="footer-signoff">
-            <span aria-hidden="true" className="footer-sun" />
-            <strong>See you by the tide.</strong>
           </div>
           <nav aria-label="Footer navigation">
             <button onClick={() => setOpenPolicy('shipping')} type="button">
