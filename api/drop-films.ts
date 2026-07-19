@@ -32,7 +32,7 @@ function isVideoBlob(blob: ListBlobResultBlob) {
 
 async function readMetadata(url: string) {
   try {
-    const response = await fetch(url, { cache: 'no-store' })
+    const response = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' })
 
     if (!response.ok) {
       return null
