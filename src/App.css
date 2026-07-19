@@ -330,9 +330,9 @@
 .hero-section {
   position: relative;
   display: grid;
-  min-height: 720px;
-  max-height: 880px;
-  height: 78svh;
+  min-height: 570px;
+  max-height: 730px;
+  height: calc(78svh - 150px);
   z-index: 3;
   overflow: visible;
   isolation: isolate;
@@ -2968,7 +2968,7 @@ button.film-play-badge {
   }
 
   .hero-section {
-    min-height: 640px;
+    min-height: 490px;
     height: auto;
   }
 
@@ -5495,9 +5495,9 @@ button.film-play-badge {
 }
 
 .hero-section {
-  height: calc(100svh - 84px);
-  min-height: 760px;
-  max-height: 980px;
+  height: calc(100svh - 234px);
+  min-height: 610px;
+  max-height: 830px;
   overflow: hidden;
   color: #fffaf0;
   background: #126f7d;
@@ -5557,7 +5557,7 @@ button.film-play-badge {
 .hero-content {
   width: min(810px, calc(100% - 64px));
   margin-left: max(32px, calc((100vw - 1260px) / 2));
-  padding-bottom: 132px;
+  padding-bottom: 0;
 }
 
 .hero-content .eyebrow {
@@ -5954,9 +5954,9 @@ button.film-play-badge {
   }
 
   .hero-section {
-    height: calc(100svh - 68px);
-    min-height: 700px;
-    max-height: 860px;
+    height: calc(100svh - 218px);
+    min-height: 550px;
+    max-height: 710px;
   }
 
   .hero-photo {
@@ -5969,7 +5969,7 @@ button.film-play-badge {
     width: calc(100% - 32px);
     margin: 0 16px;
     padding-top: 64px;
-    padding-bottom: 116px;
+    padding-bottom: 0;
   }
 
   .hero-content h1 {
