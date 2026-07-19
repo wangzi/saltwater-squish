@@ -1,4 +1,8 @@
-import { list, put } from '@vercel/blob'
+import {
+  listLatestProductMediaManifests,
+  readLatestProductMediaManifest,
+  writeProductMediaManifest,
+} from '../../server/product-media-manifests.js'
 
 declare const process: {
   env: {
@@ -25,8 +29,10 @@ type ProductMediaAsset = {
 
 type ProductMediaMetadata = {
   assets?: ProductMediaAsset[]
+  deletedAt?: string
   product?: { id: string }
   productId?: string
+  revision?: string
   updatedAt?: string
 }
 
@@ -59,10 +65,6 @@ function cleanProductId(value: unknown) {
     : ''
 }
 
-function metadataPathFor(productId: string) {
-  return `product-media-metadata/${productId}.json`
-}
-
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
     return JSON.parse(request.body) as T
@@ -72,23 +74,15 @@ async function readJsonBody<T>(request: ApiRequest): Promise<T> {
 }
 
 async function readMetadata(productId: string) {
-  const pathname = metadataPathFor(productId)
-  const result = await list({ limit: 1, prefix: pathname })
-  const blob = result.blobs.find((item) => item.pathname === pathname)
+  const loaded = await readLatestProductMediaManifest<ProductMediaAsset, { id: string }>(productId)
 
-  if (!blob) {
-    return null
-  }
-
-  const response = await fetch(`${blob.url}?v=${Date.now()}`, { cache: 'no-store' })
-
-  if (!response.ok) {
+  if (!loaded || loaded.manifest.deletedAt) {
     return null
   }
 
   return {
-    metadata: (await response.json()) as ProductMediaMetadata,
-    pathname,
+    metadata: loaded.manifest as ProductMediaMetadata,
+    revision: loaded.revision,
   }
 }
 
@@ -136,33 +130,32 @@ async function reconcileProduct(productId: string, dryRun: boolean) {
   const existing = await readMetadata(productId)
 
   if (!existing?.metadata.product || existing.metadata.product.id !== productId) {
-    return { missing: [] as MissingAsset[], removed: [] as MissingAsset[] }
+    return {
+      missing: [] as MissingAsset[],
+      removed: [] as MissingAsset[],
+      revision: undefined,
+    }
   }
 
   const assets = existing.metadata.assets ?? []
   const missing = await findMissingAssets(assets, productId)
 
   if (missing.length === 0 || dryRun) {
-    return { missing, removed: dryRun ? [] : missing }
+    return { missing, removed: dryRun ? [] : missing, revision: undefined }
   }
 
   const missingPathnames = new Set(missing.map((item) => item.pathname))
   const nextAssets = assets.filter((item) => !missingPathnames.has(item.pathname))
-  const metadata: ProductMediaMetadata = {
-    ...existing.metadata,
+  const metadata = {
     assets: nextAssets,
-    productId,
-    updatedAt: new Date().toISOString(),
+    product: existing.metadata.product,
   }
+  const saved = await writeProductMediaManifest<ProductMediaAsset, { id: string }>(
+    productId,
+    metadata,
+  )
 
-  await put(existing.pathname, JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
-  })
-
-  return { missing, removed: missing }
+  return { missing, removed: missing, revision: saved.revision }
 }
 
 export default async function handler(request: ApiRequest, response: ApiResponse) {
@@ -189,15 +182,17 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         missing: result.missing,
         ok: true,
         removed: result.removed,
+        revision: result.revision,
       })
     }
 
-    const metadataResult = await list({ limit: 100, prefix: 'product-media-metadata/' })
-    const productIds = metadataResult.blobs
-      .map((blob) => blob.pathname.replace('product-media-metadata/', '').replace(/\.json$/, ''))
-      .filter(Boolean)
+    const manifests = await listLatestProductMediaManifests<ProductMediaAsset, { id: string }>()
+    const productIds = manifests
+      .filter(({ manifest }) => !manifest.deletedAt && manifest.product?.id === manifest.productId)
+      .map(({ manifest }) => manifest.productId)
     const missing: MissingAsset[] = []
     const removed: MissingAsset[] = []
+    const revisionsByProduct: Record<string, string> = {}
 
     for (const id of productIds) {
       const result = await reconcileProduct(id, dryRun)
@@ -205,6 +200,10 @@ export default async function handler(request: ApiRequest, response: ApiResponse
 
       if (!dryRun) {
         removed.push(...result.removed)
+
+        if (result.revision) {
+          revisionsByProduct[id] = result.revision
+        }
       }
     }
 
@@ -213,6 +212,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       missing,
       ok: true,
       removed: dryRun ? [] : removed,
+      revisionsByProduct,
     })
   } catch (error) {
     console.warn('Product media reconcile failed', error)

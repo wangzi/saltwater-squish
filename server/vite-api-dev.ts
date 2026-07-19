@@ -12,6 +12,7 @@ type ApiHandler = (
   },
   response: {
     json: (body: unknown) => void
+    setHeader: (name: string, value: string) => void
     status: (code: number) => { json: (body: unknown) => void }
   },
 ) => Promise<void> | void
@@ -88,6 +89,9 @@ async function runApiHandler(
   let hasResponded = false
 
   const apiResponse = {
+    setHeader(name: string, value: string) {
+      response.setHeader(name, value)
+    },
     status(code: number) {
       statusCode = code
       return apiResponse

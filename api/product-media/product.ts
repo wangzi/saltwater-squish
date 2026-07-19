@@ -1,4 +1,7 @@
-import { del, list, put } from '@vercel/blob'
+import {
+  readLatestProductMediaManifest,
+  writeProductMediaManifest,
+} from '../../server/product-media-manifests.js'
 
 declare const process: {
   env: {
@@ -33,8 +36,10 @@ type CatalogProduct = {
 
 type ProductMediaMetadata = {
   assets?: ProductMediaAsset[]
+  deletedAt?: string
   product?: CatalogProduct
   productId?: string
+  revision?: string
   updatedAt?: string
 }
 
@@ -99,10 +104,6 @@ function cleanInventoryQuantity(value: unknown) {
     : undefined
 }
 
-function metadataPathFor(productId: string) {
-  return `product-media-metadata/${productId}.json`
-}
-
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
     return JSON.parse(request.body) as T
@@ -112,21 +113,13 @@ async function readJsonBody<T>(request: ApiRequest): Promise<T> {
 }
 
 async function findMetadata(productId: string) {
-  const pathname = metadataPathFor(productId)
-  const result = await list({ limit: 1, prefix: pathname })
-  const blob = result.blobs.find((item) => item.pathname === pathname)
+  const loaded = await readLatestProductMediaManifest<ProductMediaAsset, CatalogProduct>(productId)
 
-  if (!blob) {
+  if (!loaded || loaded.manifest.deletedAt) {
     return null
   }
 
-  const response = await fetch(`${blob.url}?v=${Date.now()}`, { cache: 'no-store' })
-
-  if (!response.ok) {
-    return null
-  }
-
-  return { metadata: (await response.json()) as ProductMediaMetadata, pathname }
+  return { metadata: loaded.manifest as ProductMediaMetadata, revision: loaded.revision }
 }
 
 export default async function handler(request: ApiRequest, response: ApiResponse) {
@@ -154,8 +147,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   }
 
   if (request.method === 'DELETE') {
-    await del(existing.pathname)
-    return response.status(200).json({ ok: true, retainedMedia: true })
+    const deletedAt = new Date().toISOString()
+    const saved = await writeProductMediaManifest<ProductMediaAsset, CatalogProduct>(
+      productId,
+      { assets: [], deletedAt },
+    )
+
+    return response.status(200).json({
+      deletedAt,
+      ok: true,
+      retainedMedia: true,
+      revision: saved.revision,
+    })
   }
 
   const name = cleanName(body.name)
@@ -169,8 +172,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
 
   const resolvedName = name || existing.metadata.product.name
 
-  const metadata: ProductMediaMetadata = {
-    ...existing.metadata,
+  const metadata = {
     assets: name
       ? (existing.metadata.assets ?? []).map((asset) => ({ ...asset, skuName: resolvedName }))
       : existing.metadata.assets,
@@ -181,16 +183,15 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       name: resolvedName,
       ...(price !== undefined ? { price } : {}),
     },
-    productId,
-    updatedAt: new Date().toISOString(),
   }
+  const saved = await writeProductMediaManifest<ProductMediaAsset, CatalogProduct>(
+    productId,
+    metadata,
+  )
 
-  await put(existing.pathname, JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
+  return response.status(200).json({
+    ok: true,
+    product: metadata.product,
+    revision: saved.revision,
   })
-
-  return response.status(200).json({ ok: true, product: metadata.product })
 }

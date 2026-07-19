@@ -202,6 +202,7 @@ type DropFilmsResponse = {
 type ProductMediaResponse = {
   mediaByProduct?: ProductMediaByProduct
   products?: Product[]
+  revisionsByProduct?: Record<string, string>
   source?: string
 }
 
@@ -548,7 +549,7 @@ function normalizeProductMedia(response: ProductMediaResponse): ProductMediaByPr
 }
 
 function normalizeCatalogProducts(response: ProductMediaResponse) {
-  if (!Array.isArray(response.products) || response.products.length === 0) {
+  if (!Array.isArray(response.products)) {
     return catalogProducts
   }
 
@@ -2535,6 +2536,7 @@ function DropFilmAdmin({
   onProductMediaReconciled,
   onProductMediaRefresh,
   onProductMediaUploaded,
+  onProductRevision,
   onProductRenamed,
   products,
   productMediaByProduct,
@@ -2549,7 +2551,12 @@ function DropFilmAdmin({
     removed: Array<{ pathname: string; productId: string }>,
   ) => void
   onProductMediaRefresh: () => Promise<void>
-  onProductMediaUploaded: (productId: string, media: ProductMedia[]) => void
+  onProductMediaUploaded: (
+    productId: string,
+    media: ProductMedia[],
+    revision?: string,
+  ) => void
+  onProductRevision: (productId: string, revision?: string) => void
   onProductRenamed: (productId: string, name: string) => void
   products: Product[]
   productMediaByProduct: ProductMediaByProduct
@@ -2673,6 +2680,7 @@ function DropFilmAdmin({
       const payload = (await response.json().catch(() => null)) as {
         error?: string
         removed?: Array<{ pathname: string; productId: string }>
+        revisionsByProduct?: Record<string, string>
       } | null
 
       if (!response.ok) {
@@ -2680,6 +2688,9 @@ function DropFilmAdmin({
       }
 
       const removed = payload?.removed ?? []
+      Object.entries(payload?.revisionsByProduct ?? {}).forEach(([productId, revision]) => {
+        onProductRevision(productId, revision)
+      })
       onProductMediaReconciled(removed)
       setMissingMediaKeys(new Set())
       setAdminMessage(
@@ -2732,12 +2743,16 @@ function DropFilmAdmin({
         },
         method: 'PATCH',
       })
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not rename that product.')
       }
 
+      onProductRevision(product.id, payload?.revision)
       onProductRenamed(product.id, name)
       setEditingProductId('')
       setEditingProductName('')
@@ -2776,12 +2791,14 @@ function DropFilmAdmin({
       const payload = (await response.json().catch(() => null)) as {
         error?: string
         retainedBlob?: boolean
+        revision?: string
       } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not delete that media file.')
       }
 
+      onProductRevision(product.id, payload?.revision)
       onProductMediaDeleted(product.id, assetPathname)
       setAdminMessage(
         payload?.retainedBlob
@@ -2817,12 +2834,16 @@ function DropFilmAdmin({
         },
         method: 'DELETE',
       })
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not delete that product.')
       }
 
+      onProductRevision(product.id, payload?.revision)
       onProductDeleted(product.id)
       setAdminMessage(`${product.name} was removed. Its hosted media files were kept.`)
     } catch (error) {
@@ -2851,12 +2872,16 @@ function DropFilmAdmin({
         },
         method: 'PATCH',
       })
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not update product categories.')
       }
 
+      onProductRevision(product.id, payload?.revision)
       onProductCategoriesChanged(product.id, categories)
       setAdminMessage(`Updated categories for ${product.name}.`)
     } catch (error) {
@@ -2894,12 +2919,16 @@ function DropFilmAdmin({
         },
         method: 'PATCH',
       })
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not update price and quantity.')
       }
 
+      onProductRevision(product.id, payload?.revision)
       onProductCommerceChanged(product.id, price, inventoryQuantity)
       setEditingCommerceProductId('')
       setEditingPrice('')
@@ -3062,7 +3091,7 @@ function DropFilmAdmin({
   const saveProductMediaMetadata = async (
     product: Product,
     uploads: Array<{ blob: PutBlobResult; file: File; sortOrder: number }>,
-  ): Promise<ProductMedia[]> => {
+  ): Promise<{ media: ProductMedia[]; revision?: string }> => {
     const response = await fetch('/api/product-media/metadata', {
       method: 'POST',
       headers: {
@@ -3087,8 +3116,15 @@ function DropFilmAdmin({
       throw new Error(payload?.error ?? 'The media uploaded, but its metadata was not saved.')
     }
 
-    const payload = (await response.json().catch(() => null)) as { media?: ProductMedia[] } | null
-    return Array.isArray(payload?.media) ? payload.media : []
+    const payload = (await response.json().catch(() => null)) as {
+      media?: ProductMedia[]
+      revision?: string
+    } | null
+
+    return {
+      media: Array.isArray(payload?.media) ? payload.media : [],
+      revision: payload?.revision,
+    }
   }
 
   const uploadFilm = async (event: FormEvent<HTMLFormElement>) => {
@@ -3257,10 +3293,10 @@ function DropFilmAdmin({
           completedFiles += 1
         }
 
-        const savedMedia = await saveProductMediaMetadata(group.product, uploadedAssets)
+        const saved = await saveProductMediaMetadata(group.product, uploadedAssets)
 
-        if (savedMedia.length > 0) {
-          onProductMediaUploaded(group.product.id, savedMedia)
+        if (saved.media.length > 0) {
+          onProductMediaUploaded(group.product.id, saved.media, saved.revision)
         }
       }
 
@@ -4092,6 +4128,7 @@ function App() {
   const bubbleFieldRef = useRef<HTMLDivElement | null>(null)
   const bubbleNodesRef = useRef<HTMLElement[]>([])
   const pointerFrameRef = useRef<number | null>(null)
+  const productMediaRevisionsRef = useRef<Record<string, string>>({})
   const shorelineFrameRef = useRef<number | null>(null)
   const pendingPointerRef = useRef({ x: 50, y: 45 })
   const reducedMotion = usePrefersReducedMotion()
@@ -4141,10 +4178,74 @@ function App() {
       }
 
       const data = (await response.json()) as ProductMediaResponse
-      setProductMediaByProduct(normalizeProductMedia(data))
+
+      if (data.source === 'unavailable') {
+        throw new Error('Product media is unavailable.')
+      }
+
+      const normalizedMedia = normalizeProductMedia(data)
       const normalizedProducts = normalizeCatalogProducts(data)
-      setProducts((currentProducts) =>
-        normalizedProducts.map((product) => {
+      const revisionEntries = Object.entries(data.revisionsByProduct ?? {})
+
+      if (revisionEntries.length === 0) {
+        setProductMediaByProduct(normalizedMedia)
+        setProducts((currentProducts) =>
+          normalizedProducts.map((product) => {
+            const currentProduct = currentProducts.find((item) => item.id === product.id)
+
+            if (!currentProduct?.shopifyVariantId) {
+              return product
+            }
+
+            return {
+              ...product,
+              availableForSale: currentProduct.availableForSale,
+              currencyCode: currentProduct.currencyCode,
+              price: currentProduct.price,
+              shopifyHandle: currentProduct.shopifyHandle,
+              shopifyProductId: currentProduct.shopifyProductId,
+              shopifyVariantId: currentProduct.shopifyVariantId,
+            }
+          }),
+        )
+        setProductMediaStatus('ready')
+        return
+      }
+
+      const hadKnownRevisions = Object.keys(productMediaRevisionsRef.current).length > 0
+      const acceptedProductIds = new Set<string>()
+
+      revisionEntries.forEach(([productId, revision]) => {
+        const currentRevision = productMediaRevisionsRef.current[productId]
+
+        if (!currentRevision || revision.localeCompare(currentRevision) >= 0) {
+          productMediaRevisionsRef.current[productId] = revision
+          acceptedProductIds.add(productId)
+        }
+      })
+
+      setProductMediaByProduct((currentMedia) => {
+        if (!hadKnownRevisions) {
+          return normalizedMedia
+        }
+
+        const nextMedia = { ...currentMedia }
+
+        acceptedProductIds.forEach((productId) => {
+          if (normalizedMedia[productId]) {
+            nextMedia[productId] = normalizedMedia[productId]
+          } else {
+            delete nextMedia[productId]
+          }
+        })
+
+        return nextMedia
+      })
+      setProducts((currentProducts) => {
+        const incomingProductsById = new Map(
+          normalizedProducts.map((product) => [product.id, product]),
+        )
+        const mergeShopifyState = (product: Product) => {
           const currentProduct = currentProducts.find((item) => item.id === product.id)
 
           if (!currentProduct?.shopifyVariantId) {
@@ -4160,16 +4261,34 @@ function App() {
             shopifyProductId: currentProduct.shopifyProductId,
             shopifyVariantId: currentProduct.shopifyVariantId,
           }
-        }),
-      )
+        }
+
+        if (!hadKnownRevisions) {
+          return normalizedProducts.map(mergeShopifyState)
+        }
+
+        const nextProducts = currentProducts
+          .filter((product) => (
+            !acceptedProductIds.has(product.id) || incomingProductsById.has(product.id)
+          ))
+          .map((product) => {
+            const incomingProduct = incomingProductsById.get(product.id)
+            return incomingProduct && acceptedProductIds.has(product.id)
+              ? mergeShopifyState(incomingProduct)
+              : product
+          })
+        const existingIds = new Set(nextProducts.map((product) => product.id))
+
+        normalizedProducts.forEach((product) => {
+          if (acceptedProductIds.has(product.id) && !existingIds.has(product.id)) {
+            nextProducts.push(mergeShopifyState(product))
+          }
+        })
+
+        return nextProducts.sort((left, right) => left.sortOrder - right.sortOrder)
+      })
       setProductMediaStatus('ready')
     } catch {
-      setProductMediaByProduct({})
-      setProducts((currentProducts) =>
-        currentProducts.some((product) => product.shopifyVariantId)
-          ? currentProducts
-          : catalogProducts,
-      )
       setProductMediaStatus('error')
     }
   }, [])
@@ -4448,7 +4567,21 @@ function App() {
     })
   }
 
-  const handleProductMediaUploaded = (productId: string, media: ProductMedia[]) => {
+  const handleProductMediaUploaded = (
+    productId: string,
+    media: ProductMedia[],
+    revision?: string,
+  ) => {
+    const currentRevision = productMediaRevisionsRef.current[productId]
+
+    if (revision && currentRevision && revision.localeCompare(currentRevision) < 0) {
+      return
+    }
+
+    if (revision) {
+      productMediaRevisionsRef.current[productId] = revision
+    }
+
     setProductMediaByProduct((current) => {
       const existingMedia = current[productId] ?? []
       const normalizedNew = media
@@ -4470,6 +4603,18 @@ function App() {
         [productId]: mergedMedia,
       }
     })
+  }
+
+  const handleProductRevision = (productId: string, revision?: string) => {
+    if (!revision) {
+      return
+    }
+
+    const currentRevision = productMediaRevisionsRef.current[productId]
+
+    if (!currentRevision || revision.localeCompare(currentRevision) >= 0) {
+      productMediaRevisionsRef.current[productId] = revision
+    }
   }
 
   const handleProductMediaReconciled = (
@@ -4850,6 +4995,7 @@ function App() {
             onProductMediaReconciled={handleProductMediaReconciled}
             onProductMediaRefresh={loadProductMedia}
             onProductMediaUploaded={handleProductMediaUploaded}
+            onProductRevision={handleProductRevision}
             onProductRenamed={handleProductRenamed}
             products={products}
             productMediaByProduct={productMediaByProduct}

@@ -1,4 +1,8 @@
-import { del, list, put } from '@vercel/blob'
+import { del } from '@vercel/blob'
+import {
+  readLatestProductMediaManifest,
+  writeProductMediaManifest,
+} from '../../server/product-media-manifests.js'
 
 declare const process: {
   env: {
@@ -31,8 +35,10 @@ type ProductMediaAsset = {
 
 type ProductMediaMetadata = {
   assets?: ProductMediaAsset[]
+  deletedAt?: string
   product?: { id: string }
   productId?: string
+  revision?: string
   updatedAt?: string
 }
 
@@ -63,10 +69,6 @@ function cleanPathname(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function metadataPathFor(productId: string) {
-  return `product-media-metadata/${productId}.json`
-}
-
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
     return JSON.parse(request.body) as T
@@ -76,21 +78,13 @@ async function readJsonBody<T>(request: ApiRequest): Promise<T> {
 }
 
 async function findMetadata(productId: string) {
-  const pathname = metadataPathFor(productId)
-  const result = await list({ limit: 1, prefix: pathname })
-  const blob = result.blobs.find((item) => item.pathname === pathname)
+  const loaded = await readLatestProductMediaManifest<ProductMediaAsset, { id: string }>(productId)
 
-  if (!blob) {
+  if (!loaded || loaded.manifest.deletedAt) {
     return null
   }
 
-  const response = await fetch(`${blob.url}?v=${Date.now()}`, { cache: 'no-store' })
-
-  if (!response.ok) {
-    return null
-  }
-
-  return { metadata: (await response.json()) as ProductMediaMetadata, pathname }
+  return { metadata: loaded.manifest as ProductMediaMetadata, revision: loaded.revision }
 }
 
 function blobUrlsToDelete(asset: ProductMediaAsset) {
@@ -147,19 +141,14 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   }
 
   const nextAssets = assets.filter((item) => item.pathname !== assetPathname)
-  const metadata: ProductMediaMetadata = {
-    ...existing.metadata,
+  const metadata = {
     assets: nextAssets,
-    productId,
-    updatedAt: new Date().toISOString(),
+    product: existing.metadata.product,
   }
-
-  await put(existing.pathname, JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
-  })
+  const saved = await writeProductMediaManifest<ProductMediaAsset, { id: string }>(
+    productId,
+    metadata,
+  )
 
   if (isProductUpload) {
     await del(blobUrlsToDelete(asset)).catch((error) => {
@@ -171,5 +160,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     ok: true,
     removedPathname: assetPathname,
     retainedBlob: isSharedDropFilm,
+    revision: saved.revision,
   })
 }

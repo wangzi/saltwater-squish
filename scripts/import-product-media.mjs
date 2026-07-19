@@ -3,6 +3,10 @@ import { mkdir, readFile, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { list, put } from '@vercel/blob'
+import {
+  readLatestProductManifest,
+  writeProductManifest,
+} from './product-media-manifests.mjs'
 
 const products = [
   {
@@ -194,16 +198,13 @@ async function optimizedFileFor(productId, fileName, index) {
 }
 
 async function readExistingMetadata(productId) {
-  const pathname = `product-media-metadata/${productId}.json`
-  const result = await list({ limit: 1, prefix: pathname })
-  const blob = result.blobs.find((item) => item.pathname === pathname)
+  const loaded = await readLatestProductManifest(productId)
 
-  if (!blob) {
+  if (!loaded || loaded.manifest.deletedAt) {
     return { assets: [] }
   }
 
-  const response = await fetch(`${blob.url}?catalog-refresh=${Date.now()}`, { cache: 'no-store' })
-  return response.ok ? response.json() : { assets: [] }
+  return loaded.manifest
 }
 
 async function importProduct(product) {
@@ -294,16 +295,9 @@ async function importProduct(product) {
       sortOrder: product.sortOrder,
       status: 'published',
     },
-    productId: product.id,
-    updatedAt: new Date().toISOString(),
   }
 
-  await put(`product-media-metadata/${product.id}.json`, JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
-  })
+  await writeProductManifest(product.id, metadata)
 
   return nextAssets.length
 }

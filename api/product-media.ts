@@ -1,4 +1,4 @@
-import { list } from '@vercel/blob'
+import { listLatestProductMediaManifests } from '../server/product-media-manifests.js'
 
 type ApiRequest = {
   url?: string
@@ -54,65 +54,37 @@ type CatalogProduct = {
   tag: string
 }
 
-type ProductMediaMetadata = {
-  assets?: ProductMediaAsset[]
-  product?: CatalogProduct
-  productId?: string
-}
-
 function isProductMediaKind(value: unknown): value is ProductMediaKind {
   return value === 'image' || value === 'video'
-}
-
-async function readMetadata(url: string) {
-  try {
-    const response = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' })
-
-    if (!response.ok) {
-      return null
-    }
-
-    const metadata = (await response.json()) as ProductMediaMetadata
-
-    if (!metadata.productId || !Array.isArray(metadata.assets)) {
-      return null
-    }
-
-    const assets = metadata.assets.filter(
-      (asset) =>
-        asset.productId === metadata.productId &&
-        isProductMediaKind(asset.kind) &&
-        Boolean(asset.pathname) &&
-        Boolean(asset.url),
-    )
-
-    return {
-      assets,
-      product: metadata.product,
-      productId: metadata.productId,
-    }
-  } catch {
-    return null
-  }
 }
 
 export default async function handler(_request: ApiRequest, response: ApiResponse) {
   response.setHeader('Cache-Control', 'no-store')
 
   try {
-    const metadataResult = await list({ limit: 100, prefix: 'product-media-metadata/' })
-    const metadataEntries = await Promise.all(
-      metadataResult.blobs.map((blob) => readMetadata(blob.url)),
-    )
+    const metadataEntries = await listLatestProductMediaManifests<
+      ProductMediaAsset,
+      CatalogProduct
+    >()
     const mediaByProduct: Record<string, ProductMediaAsset[]> = {}
     const products: CatalogProduct[] = []
+    const revisionsByProduct: Record<string, string> = {}
 
-    metadataEntries.forEach((metadata) => {
-      if (!metadata) {
+    metadataEntries.forEach(({ manifest: metadata, revision }) => {
+      const productId = metadata.productId
+      revisionsByProduct[productId] = revision
+
+      if (metadata.deletedAt || !Array.isArray(metadata.assets)) {
         return
       }
 
-      mediaByProduct[metadata.productId] = metadata.assets.sort((left, right) => {
+      mediaByProduct[productId] = metadata.assets.filter(
+        (asset) =>
+          asset.productId === productId &&
+          isProductMediaKind(asset.kind) &&
+          Boolean(asset.pathname) &&
+          Boolean(asset.url),
+      ).sort((left, right) => {
         if (left.kind !== right.kind) {
           return left.kind === 'image' ? -1 : 1
         }
@@ -129,14 +101,19 @@ export default async function handler(_request: ApiRequest, response: ApiRespons
         return rightTime - leftTime
       })
 
-      if (metadata.product?.id === metadata.productId && metadata.product.sku) {
+      if (metadata.product?.id === productId && metadata.product.sku) {
         products.push(metadata.product)
       }
     })
 
     products.sort((left, right) => left.sortOrder - right.sortOrder)
 
-    return response.status(200).json({ mediaByProduct, products, source: 'blob' })
+    return response.status(200).json({
+      mediaByProduct,
+      products,
+      revisionsByProduct,
+      source: 'blob',
+    })
   } catch (error) {
     console.warn('Product media unavailable', error)
     return response.status(200).json({ mediaByProduct: {}, products: [], source: 'unavailable' })

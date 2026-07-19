@@ -1,5 +1,9 @@
-import { list, put } from '@vercel/blob'
+import { put } from '@vercel/blob'
 import sharp from 'sharp'
+import {
+  listLatestProductManifests,
+  writeProductManifest,
+} from './product-media-manifests.mjs'
 
 const imageWidths = [160, 256, 640, 768, 960]
 const force = process.argv.includes('--force')
@@ -63,22 +67,15 @@ async function createVariants(asset, productId) {
   }))
 }
 
-async function readMetadata(blob) {
-  const response = await fetch(`${blob.url}?optimize=${Date.now()}`, { cache: 'no-store' })
-
-  if (!response.ok) {
-    throw new Error(`Unable to read ${blob.pathname} (${response.status}).`)
-  }
-
-  return response.json()
-}
-
-const result = await list({ limit: 100, prefix: 'product-media-metadata/' })
+const manifests = await listLatestProductManifests()
 let optimizedImages = 0
 let optimizedProducts = 0
 
-for (const metadataBlob of result.blobs) {
-  const metadata = await readMetadata(metadataBlob)
+for (const { manifest: metadata } of manifests) {
+  if (metadata.deletedAt || !metadata.productId) {
+    continue
+  }
+
   const assets = Array.isArray(metadata.assets) ? metadata.assets : []
   let changed = false
 
@@ -106,12 +103,9 @@ for (const metadataBlob of result.blobs) {
     continue
   }
 
-  metadata.updatedAt = new Date().toISOString()
-  await put(metadataBlob.pathname, JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
+  await writeProductManifest(metadata.productId, {
+    assets,
+    product: metadata.product,
   })
   optimizedProducts += 1
 }

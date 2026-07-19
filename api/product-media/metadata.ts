@@ -1,8 +1,12 @@
-import { list, put, type PutBlobResult } from '@vercel/blob'
+import type { PutBlobResult } from '@vercel/blob'
 import {
   createProductImageVariants,
   type ProductImageVariant,
 } from '../../server/product-images.js'
+import {
+  readLatestProductMediaManifest,
+  writeProductMediaManifest,
+} from '../../server/product-media-manifests.js'
 
 declare const process: {
   env: {
@@ -74,8 +78,10 @@ type ProductMediaAsset = {
 
 type ProductMediaMetadata = {
   assets?: ProductMediaAsset[]
+  deletedAt?: string
   product?: CatalogProduct
   productId?: string
+  revision?: string
   updatedAt?: string
 }
 
@@ -190,10 +196,6 @@ function cleanCatalogProduct(
   }
 }
 
-function metadataPathFor(productId: string) {
-  return `product-media-metadata/${productId}.json`
-}
-
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
     return JSON.parse(request.body) as T
@@ -207,31 +209,20 @@ async function readJsonBody<T>(request: ApiRequest): Promise<T> {
 }
 
 async function readExistingMetadata(productId: string): Promise<ProductMediaMetadata> {
-  const metadataPath = metadataPathFor(productId)
-  const result = await list({ limit: 1, prefix: metadataPath })
-  const blob = result.blobs.find((item) => item.pathname === metadataPath)
+  const loaded = await readLatestProductMediaManifest<ProductMediaAsset, CatalogProduct>(productId)
 
-  if (!blob) {
+  if (!loaded || loaded.manifest.deletedAt) {
     return { assets: [], productId }
   }
 
-  try {
-    const response = await fetch(`${blob.url}?v=${Date.now()}`, { cache: 'no-store' })
+  const metadata = loaded.manifest
 
-    if (!response.ok) {
-      return { assets: [], productId }
-    }
-
-    const metadata = (await response.json()) as ProductMediaMetadata
-
-    return {
-      assets: Array.isArray(metadata.assets) ? metadata.assets : [],
-      product: metadata.product,
-      productId,
-      updatedAt: metadata.updatedAt,
-    }
-  } catch {
-    return { assets: [], productId }
+  return {
+    assets: Array.isArray(metadata.assets) ? metadata.assets : [],
+    product: metadata.product,
+    productId,
+    revision: loaded.revision,
+    updatedAt: metadata.updatedAt,
   }
 }
 
@@ -308,19 +299,20 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     ...uploadedAssets,
     ...(existingMetadata.assets ?? []).filter((item) => !uploadedPathnames.has(item.pathname)),
   ]
-  const metadata: ProductMediaMetadata = {
+  const metadata = {
     assets,
     product,
-    productId,
-    updatedAt: now,
   }
+  const saved = await writeProductMediaManifest<ProductMediaAsset, CatalogProduct>(
+    productId,
+    metadata,
+  )
 
-  await put(metadataPathFor(productId), JSON.stringify(metadata), {
-    access: 'public',
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
+  return response.status(200).json({
+    media: uploadedAssets,
+    ok: true,
+    product,
+    revision: saved.revision,
+    updatedAt: saved.manifest.updatedAt,
   })
-
-  return response.status(200).json({ media: uploadedAssets, ok: true, product })
 }
