@@ -2703,7 +2703,12 @@ function DropFilmAdmin({
     }
 
     void checkMissingMedia()
-  }, [checkMissingMedia, isAuthorized, productMediaByProduct])
+  }, [checkMissingMedia, isAuthorized])
+
+  const refreshProductMediaLibrary = async () => {
+    await onProductMediaRefresh()
+    await checkMissingMedia()
+  }
 
   const saveProductName = async (event: FormEvent<HTMLFormElement>, product: Product) => {
     event.preventDefault()
@@ -3375,7 +3380,7 @@ function DropFilmAdmin({
               </div>
               <button
                 className="icon-button"
-                onClick={() => void onProductMediaRefresh()}
+                onClick={() => void refreshProductMediaLibrary()}
                 title="Refresh product media"
                 type="button"
               >
@@ -3535,7 +3540,7 @@ function DropFilmAdmin({
                 <button
                   className="icon-button"
                   disabled={isCheckingMissingMedia || isPruningMissingMedia}
-                  onClick={() => void onProductMediaRefresh()}
+                  onClick={() => void refreshProductMediaLibrary()}
                   title="Refresh product media"
                   type="button"
                 >
