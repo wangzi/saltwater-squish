@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "import:products": "node scripts/import-product-media.mjs",
+    "migrate:product-manifests": "node scripts/migrate-product-media-manifests.mjs",
     "optimize:product-images": "node scripts/optimize-product-images.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
