@@ -5,10 +5,8 @@ import {
   Check,
   ExternalLink,
   Film,
-  FishSymbol,
   Heart,
   Lock,
-  MapPin,
   Maximize2,
   Menu,
   Minimize2,
@@ -24,14 +22,12 @@ import {
   ShoppingBag,
   ShieldCheck,
   Sparkles,
-  Sun,
   Trash2,
   TriangleAlert,
   Turtle,
   Upload,
   Waves,
   X,
-  MoonStar,
 } from 'lucide-react'
 import { type PutBlobResult } from '@vercel/blob'
 import {
@@ -50,17 +46,7 @@ import {
 } from 'react'
 import './App.css'
 import brandMark from './assets/optimized/saltwater-squish-mark.webp?no-inline'
-import heroImage from './assets/optimized/hero-beach-squish.jpg'
-import heroImageWebp from './assets/optimized/hero-beach-squish.webp'
-import aboutBeachPhoto from './assets/optimized/ira-joni-half-moon-bay.jpg'
-import aboutBeachPhotoWebp from './assets/optimized/ira-joni-half-moon-bay.webp'
 import productSheet from './assets/optimized/product-sheet.webp'
-import blueDaddyShark from './assets/generated/blue-daddy-shark.webp'
-import pinkShark from './assets/generated/pink-shark.webp'
-import purpleMamaShark from './assets/generated/purple-mama-shark.webp'
-import reefFishAqua from './assets/optimized/reef-fish-aqua.png'
-import reefFishCoral from './assets/optimized/reef-fish-coral.png'
-import reefFishSun from './assets/optimized/reef-fish-sun.png'
 import turtleMascot from './assets/generated/sea-turtle-topdown-v2.webp'
 import {
   catalogProducts,
@@ -381,6 +367,16 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, '')
 
   return slug || 'drop-film'
+}
+
+function productPageHash(productId: string) {
+  return `#product/${productId}`
+}
+
+function parseProductRouteId(hash: string) {
+  const match = hash.match(/^#product\/([^/?]+)/)
+
+  return match?.[1] ?? null
 }
 
 function fileExtensionFromName(fileName: string) {
@@ -730,23 +726,27 @@ function ProductVisual({
 }
 
 function ProductMediaGallery({
+  layout = 'card',
   media,
   product,
 }: {
+  layout?: 'card' | 'page'
   media: ProductMedia[]
   product: Product
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isHoverPreviewing, setIsHoverPreviewing] = useState(false)
+  const isPageLayout = layout === 'page'
   const leadImage = media.find((item) => item.kind === 'image')
   const firstVideoIndex = media.findIndex((item) => item.kind === 'video')
-  const displayedIndex = isHoverPreviewing && firstVideoIndex >= 0
+  const displayedIndex = !isPageLayout && isHoverPreviewing && firstVideoIndex >= 0
     ? firstVideoIndex
     : activeIndex
   const activeMedia = media[displayedIndex]
 
   const startHoverPreview = () => {
     if (
+      isPageLayout ||
       firstVideoIndex < 0 ||
       !window.matchMedia('(hover: hover) and (pointer: fine)').matches ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -766,7 +766,59 @@ function ProductMediaGallery({
   }, [activeIndex, media.length])
 
   if (media.length === 0) {
-    return <ProductVisual product={product} />
+    return (
+      <ProductVisual
+        className={isPageLayout ? 'product-page-media-main' : undefined}
+        product={product}
+      />
+    )
+  }
+
+  const mediaStrip = media.length > 1 ? (
+    <div
+      aria-label={`${product.name} media`}
+      className={isPageLayout ? 'product-page-media-strip' : 'product-media-strip'}
+    >
+      {media.map((item, index) => (
+        <button
+          aria-label={`Show ${item.kind} ${index + 1} for ${product.name}`}
+          aria-pressed={activeIndex === index}
+          className="product-media-thumb"
+          key={item.id}
+          onClick={(event) => {
+            event.stopPropagation()
+            setIsHoverPreviewing(false)
+            setActiveIndex(index)
+          }}
+          type="button"
+        >
+          <ProductVisual
+            imageSizes="96px"
+            media={item.kind === 'video' ? leadImage ?? item : item}
+            product={product}
+          />
+          {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
+        </button>
+      ))}
+    </div>
+  ) : null
+
+  if (isPageLayout) {
+    return (
+      <div className="product-media-gallery product-media-gallery-page">
+        <div className="product-page-media-stage">
+          <ProductVisual
+            controls={activeMedia?.kind === 'video'}
+            className="product-page-media-main"
+            media={activeMedia}
+            imageSizes="(max-width: 720px) 100vw, 42vw"
+            poster={leadImage?.url}
+            product={product}
+          />
+        </div>
+        {mediaStrip}
+      </div>
+    )
   }
 
   return (
@@ -794,30 +846,7 @@ function ProductMediaGallery({
           </span>
         ) : null}
       </div>
-      {media.length > 1 ? (
-        <div className="product-media-strip" aria-label={`${product.name} media`}>
-          {media.map((item, index) => (
-            <button
-              aria-label={`Show ${item.kind} ${index + 1} for ${product.name}`}
-              aria-pressed={activeIndex === index}
-              className="product-media-thumb"
-              key={item.id}
-              onClick={() => {
-                setIsHoverPreviewing(false)
-                setActiveIndex(index)
-              }}
-              type="button"
-            >
-              <ProductVisual
-                imageSizes="96px"
-                media={item.kind === 'video' ? leadImage ?? item : item}
-                product={product}
-              />
-              {item.kind === 'video' ? <Play aria-hidden="true" size={13} /> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {mediaStrip}
     </div>
   )
 }
@@ -1481,1048 +1510,6 @@ function drawCreatureTrail(
     },
     actor.brush,
     velocity,
-  )
-}
-
-function SplashStudio({ reducedMotion }: { reducedMotion: boolean }) {
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isPaused, setIsPaused] = useState(reducedMotion)
-  const [studioVoice, setStudioVoice] = useState('The sea turtle is exploring the shore.')
-  const [attractor, setAttractor] = useState<StudioAttractor | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const shimmerCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const canvasBoundsRef = useRef<StudioBounds | null>(null)
-  const frameRef = useRef<number | null>(null)
-  const actorNodesRef = useRef<Record<string, HTMLDivElement | null>>({})
-  const actorsRef = useRef<StudioCreatureActor[]>([])
-  const attractorRef = useRef<StudioAttractor | null>(null)
-  const isPausedRef = useRef(isPaused)
-  const isStudioVisibleRef = useRef(true)
-  const lastFrameAtRef = useRef(0)
-  const lastShimmerFadeAtRef = useRef(0)
-  const studioSectionRef = useRef<HTMLElement | null>(null)
-  const textCursorRef = useRef<StudioPoint | null>(null)
-  const textStampsRef = useRef<TextStamp[]>([])
-
-  useEffect(() => {
-    isPausedRef.current = isPaused
-  }, [isPaused])
-
-  useEffect(() => {
-    attractorRef.current = attractor
-  }, [attractor])
-
-  useEffect(() => {
-    const syncFullscreenState = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
-      window.setTimeout(refreshCanvasBounds, 80)
-    }
-
-    document.addEventListener('fullscreenchange', syncFullscreenState)
-
-    return () => document.removeEventListener('fullscreenchange', syncFullscreenState)
-  }, [])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const shimmerCanvas = shimmerCanvasRef.current
-    let resizeFrame: number | null = null
-    let previousHeight = 0
-    let previousWidth = 0
-
-    const handleResize = () => {
-      if (resizeFrame !== null) {
-        window.cancelAnimationFrame(resizeFrame)
-      }
-
-      resizeFrame = window.requestAnimationFrame(() => {
-        const bounds = refreshCanvasBounds()
-
-        if (!bounds) {
-          return
-        }
-
-        const materiallyResized = Math.abs(bounds.width - previousWidth) > 2 || Math.abs(bounds.height - previousHeight) > 2
-
-        if (!materiallyResized) {
-          return
-        }
-
-        previousHeight = bounds.height
-        previousWidth = bounds.width
-        clearStudioSurface(canvas, shimmerCanvas)
-        actorsRef.current = createStudioActors(bounds)
-        textCursorRef.current = null
-      })
-    }
-
-    clearStudioSurface(canvas, shimmerCanvas)
-    const bounds = refreshCanvasBounds()
-
-    if (bounds) {
-      previousHeight = bounds.height
-      previousWidth = bounds.width
-      actorsRef.current = createStudioActors(bounds)
-    }
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(handleResize)
-
-    if (canvas && resizeObserver) {
-      resizeObserver.observe(canvas)
-    } else {
-      window.addEventListener('resize', handleResize)
-    }
-
-    return () => {
-      resizeObserver?.disconnect()
-      window.removeEventListener('resize', handleResize)
-
-      if (resizeFrame !== null) {
-        window.cancelAnimationFrame(resizeFrame)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    const section = studioSectionRef.current
-
-    if (!section || typeof IntersectionObserver === 'undefined') {
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const isVisible = Boolean(entry?.isIntersecting)
-        isStudioVisibleRef.current = isVisible
-
-        if (isVisible) {
-          lastFrameAtRef.current = performance.now()
-        }
-      },
-      { rootMargin: '160px 0px' },
-    )
-
-    observer.observe(section)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        isPausedRef.current = true
-        setIsPaused(true)
-      }
-    }
-
-    const animateStudio = (now: number) => {
-      if (!isStudioVisibleRef.current) {
-        lastFrameAtRef.current = now
-        frameRef.current = window.requestAnimationFrame(animateStudio)
-        return
-      }
-
-      const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-      if (!bounds) {
-        frameRef.current = window.requestAnimationFrame(animateStudio)
-        return
-      }
-
-      if (actorsRef.current.length === 0) {
-        actorsRef.current = createStudioActors(bounds, now)
-      }
-
-      const elapsed = lastFrameAtRef.current ? now - lastFrameAtRef.current : 16
-      const delta = clampStudioValue(elapsed / 1000, 0.001, 0.05)
-      lastFrameAtRef.current = now
-
-      if (!isPausedRef.current) {
-        updateStudioActors(bounds, now, delta)
-      }
-
-      actorsRef.current.forEach((actor) => updateActorNode(actor, now))
-      frameRef.current = window.requestAnimationFrame(animateStudio)
-    }
-
-    frameRef.current = window.requestAnimationFrame(animateStudio)
-    window.addEventListener('blur', handleVisibilityChange)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('blur', handleVisibilityChange)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current)
-      }
-    }
-    // The game loop reads mutable refs so it can stay stable without restarting on every render.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const refreshCanvasBounds = () => {
-    const canvas = canvasRef.current
-
-    if (!canvas) {
-      return null
-    }
-
-    const rect = canvas.getBoundingClientRect()
-    const bounds = {
-      height: rect.height,
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-    }
-
-    canvasBoundsRef.current = bounds
-    return bounds
-  }
-
-  const defaultTextCursor = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return {
-        time: performance.now(),
-        x: 40,
-        y: 120,
-      }
-    }
-
-    return {
-      time: performance.now(),
-      x: Math.max(28, bounds.width * 0.12),
-      y: Math.max(54, bounds.height * 0.22),
-    }
-  }
-
-  const keepTextCursorInBounds = (point: StudioPoint) => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return point
-    }
-
-    return {
-      ...point,
-      x: Math.min(Math.max(24, point.x), Math.max(24, bounds.width - 48)),
-      y: Math.min(Math.max(24, point.y), Math.max(24, bounds.height - studioTextLineHeight - 20)),
-    }
-  }
-
-  const setCreatureNode = (id: string) => (node: HTMLDivElement | null) => {
-    actorNodesRef.current[id] = node
-  }
-
-  const moveActorToWanderTarget = (actor: StudioCreatureActor, bounds: StudioBounds, now: number, index: number) => {
-    const target = makeStudioTarget(bounds, index, now + Math.random() * 2200)
-    actor.targetX = target.x
-    actor.targetY = target.y
-    actor.nextWanderAt = now + 2600 + Math.random() * 2600 + index * 320
-  }
-
-  const updateActorNode = (actor: StudioCreatureActor, now: number) => {
-    const node = actorNodesRef.current[actor.id]
-
-    if (!node) {
-      return
-    }
-
-    const speed = Math.hypot(actor.vx, actor.vy)
-    const size = studioCreatureDisplaySize(actor.brush)
-    const bob = Math.sin(now * 0.006 + actor.phase) * (actor.brush.stamp === 'crab' ? 2.4 : actor.brush.stamp === 'turtle' ? 1.2 : 0.55)
-    const crawlSquash = actor.brush.stamp === 'crab'
-      ? 1 + Math.sin(actor.step * 1.7) * 0.035
-      : actor.brush.stamp === 'snail'
-        ? 1 + Math.sin(actor.step * 1.15) * 0.018
-        : 1
-    const verticalScale = 2 - crawlSquash
-    const tilt = speed > 1
-      ? clampStudioValue(actor.vy / Math.max(speed, 1) * 0.18, -0.18, 0.18)
-      : 0
-
-    const rotation = actor.brush.stamp === 'turtle' ? actor.direction : tilt
-    const turtleBreath = actor.brush.stamp === 'turtle'
-      ? 1 + Math.sin(now * 0.0034 + actor.phase) * 0.012
-      : 1
-    const horizontalScale = actor.brush.stamp === 'turtle'
-      ? turtleBreath
-      : actor.facing * crawlSquash
-    const resolvedVerticalScale = actor.brush.stamp === 'turtle'
-      ? 2 - turtleBreath
-      : verticalScale
-
-    node.style.transform = `translate3d(${actor.x - size / 2}px, ${actor.y - size / 2 + bob}px, 0) rotate(${rotation}rad) scale(${horizontalScale}, ${resolvedVerticalScale})`
-  }
-
-  const updateStudioActors = (bounds: StudioBounds, now: number, delta: number) => {
-    const canvas = canvasRef.current
-    const shimmerCanvas = shimmerCanvasRef.current
-    const currentAttractor = attractorRef.current
-    const isAttracted = currentAttractor && now - currentAttractor.time < studioAttractorLifetime
-    const motionScale = reducedMotion ? 0.58 : 1
-
-    if (currentAttractor && !isAttracted) {
-      attractorRef.current = null
-      setAttractor(null)
-    }
-
-    actorsRef.current.forEach((actor, index) => {
-      if (isAttracted && currentAttractor) {
-        const orbit = actor.phase * 2.1 + index
-        actor.targetX = clampStudioValue(
-          currentAttractor.x + Math.cos(orbit) * (18 + index * 8),
-          studioActorPadding,
-          Math.max(studioActorPadding, bounds.width - studioActorPadding),
-        )
-        actor.targetY = clampStudioValue(
-          currentAttractor.y + Math.sin(orbit) * (16 + index * 7),
-          studioActorPadding,
-          studioActorMaxY(bounds),
-        )
-      } else if (now > actor.nextWanderAt) {
-        moveActorToWanderTarget(actor, bounds, now, index)
-      }
-
-      const dx = actor.targetX - actor.x
-      const dy = actor.targetY - actor.y
-      const distance = Math.max(Math.hypot(dx, dy), 1)
-
-      if (distance < 18 && !isAttracted) {
-        moveActorToWanderTarget(actor, bounds, now, index)
-      }
-
-      const targetSpeed = actor.speed * motionScale * (isAttracted ? 1.12 : 1) * (distance < 70 ? 0.72 : 1)
-      const desiredVx = (dx / distance) * targetSpeed
-      const desiredVy = (dy / distance) * targetSpeed
-      const follow = Math.min(1, delta * (isAttracted ? 5.8 : 3.7))
-
-      actor.vx += (desiredVx - actor.vx) * follow
-      actor.vy += (desiredVy - actor.vy) * follow
-      actor.x = clampStudioValue(actor.x + actor.vx * delta, studioActorPadding, Math.max(studioActorPadding, bounds.width - studioActorPadding))
-      actor.y = clampStudioValue(actor.y + actor.vy * delta, studioActorPadding, studioActorMaxY(bounds))
-
-      const speed = Math.hypot(actor.vx, actor.vy)
-
-      if (speed > 1) {
-        actor.direction = Math.atan2(actor.vy, actor.vx)
-        if (Math.abs(actor.vx) > 3) {
-          actor.facing = actor.vx < 0 ? -1 : 1
-        }
-        actor.step += speed * delta * (actor.brush.stamp === 'crab' ? 0.12 : 0.08)
-      }
-
-      const trailDelay = actor.brush.stamp === 'crab' ? 120 : actor.brush.stamp === 'turtle' ? 230 : 170
-
-      if (speed > 7 && now - actor.lastTrailAt > trailDelay) {
-        drawCreatureTrail(canvas, shimmerCanvas, actor, speed / 70)
-        actor.lastTrailAt = now
-      }
-    })
-
-    if (now - lastShimmerFadeAtRef.current > 84) {
-      fadeSandLift(shimmerCanvas)
-      lastShimmerFadeAtRef.current = now
-    }
-  }
-
-  const dropAttractor = (point: StudioPoint) => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    const now = performance.now()
-    const safePoint = studioPointInBounds(bounds, point.x, point.y)
-    const nextAttractor = {
-      id: now,
-      time: now,
-      x: safePoint.x,
-      y: safePoint.y,
-    }
-
-    attractorRef.current = nextAttractor
-    setAttractor(nextAttractor)
-    drawStudioShellSignal(canvasRef.current, shimmerCanvasRef.current, safePoint)
-
-    actorsRef.current.forEach((actor, index) => {
-      const angle = index * 2.15 + 0.8
-      actor.targetX = clampStudioValue(
-        safePoint.x + Math.cos(angle) * (24 + index * 8),
-        studioActorPadding,
-        Math.max(studioActorPadding, bounds.width - studioActorPadding),
-      )
-      actor.targetY = clampStudioValue(
-        safePoint.y + Math.sin(angle) * (18 + index * 6),
-        studioActorPadding,
-        studioActorMaxY(bounds),
-      )
-      actor.nextWanderAt = now + studioAttractorLifetime
-    })
-
-    if (isPaused) {
-      setIsPaused(false)
-    }
-
-    setStudioVoice('A shell! The turtle is on the way.')
-  }
-
-  const handleSandPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
-    event.preventDefault()
-    event.currentTarget.focus()
-
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    dropAttractor(canvasPointFromClient(bounds, event.clientX, event.clientY, performance.now()))
-  }
-
-  const scatterCreatures = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!bounds) {
-      return
-    }
-
-    const now = performance.now()
-    attractorRef.current = null
-    setAttractor(null)
-    actorsRef.current.forEach((actor, index) => {
-      moveActorToWanderTarget(actor, bounds, now + index * 500, index)
-      drawSandStamp(canvasRef.current, shimmerCanvasRef.current, actor.brush, {
-        time: now,
-        x: actor.x,
-        y: actor.y,
-      }, reducedMotion ? 0.5 : 0.74)
-    })
-    fadeSandLift(shimmerCanvasRef.current)
-    setStudioVoice('A new turtle trail.')
-  }
-
-  const clearStudio = () => {
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    textCursorRef.current = null
-    textStampsRef.current = []
-    attractorRef.current = null
-    setAttractor(null)
-    clearStudioSurface(canvasRef.current, shimmerCanvasRef.current)
-
-    if (bounds) {
-      actorsRef.current = createStudioActors(bounds)
-    }
-
-    setStudioVoice('Fresh sand.')
-  }
-
-  const togglePause = () => {
-    setIsPaused((current) => {
-      const next = !current
-      isPausedRef.current = next
-      lastFrameAtRef.current = performance.now()
-      setStudioVoice(next ? 'Turtle nap time.' : 'Off the turtle goes.')
-      return next
-    })
-  }
-
-  const toggleFullscreen = async () => {
-    const section = studioSectionRef.current
-
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      } else if (section?.requestFullscreen) {
-        await section.requestFullscreen()
-      } else {
-        setIsFullscreen((current) => !current)
-      }
-    } catch {
-      setIsFullscreen((current) => !current)
-    } finally {
-      window.setTimeout(refreshCanvasBounds, 120)
-    }
-  }
-
-  const handleStudioKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) {
-      return
-    }
-
-    const canvas = canvasRef.current
-    const bounds = canvasBoundsRef.current ?? refreshCanvasBounds()
-
-    if (!canvas || !bounds) {
-      return
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setIsPaused(true)
-      setStudioVoice('Turtle nap time.')
-      return
-    }
-
-    if (event.key === 'Backspace') {
-      event.preventDefault()
-      const lastStamp = textStampsRef.current.pop()
-
-      if (lastStamp) {
-        smoothStudioRect(canvas, lastStamp.x, lastStamp.y, lastStamp.width, lastStamp.height)
-        textCursorRef.current = keepTextCursorInBounds({
-          time: performance.now(),
-          x: lastStamp.x,
-          y: lastStamp.y,
-        })
-      }
-      return
-    }
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      scatterCreatures()
-      return
-    }
-
-    if (event.key.startsWith('Arrow')) {
-      event.preventDefault()
-      const cursor = keepTextCursorInBounds(textCursorRef.current ?? defaultTextCursor())
-      const move = event.shiftKey ? 44 : 20
-      textCursorRef.current = keepTextCursorInBounds({
-        time: performance.now(),
-        x: cursor.x + (event.key === 'ArrowRight' ? move : event.key === 'ArrowLeft' ? -move : 0),
-        y: cursor.y + (event.key === 'ArrowDown' ? move : event.key === 'ArrowUp' ? -move : 0),
-      })
-      return
-    }
-
-    if (event.key.length !== 1) {
-      return
-    }
-
-    event.preventDefault()
-    let cursor = keepTextCursorInBounds(textCursorRef.current ?? defaultTextCursor())
-
-    if (cursor.x > bounds.width - 60) {
-      cursor = {
-        time: performance.now(),
-        x: Math.max(28, bounds.width * 0.12),
-        y: cursor.y + studioTextLineHeight,
-      }
-    }
-
-    const stamp = drawSandLetter(canvas, shimmerCanvasRef.current, event.key, cursor)
-    textStampsRef.current.push({
-      ...stamp,
-      text: event.key,
-      x: cursor.x,
-      y: cursor.y,
-    })
-    textCursorRef.current = keepTextCursorInBounds({
-      time: performance.now(),
-      x: cursor.x + stamp.width + (event.key === ' ' ? studioTextSize * 0.18 : 4),
-      y: cursor.y,
-    })
-    dropAttractor({
-      time: performance.now(),
-      x: cursor.x + stamp.width / 2,
-      y: cursor.y + studioTextSize * 0.44,
-    })
-    setStudioVoice('Letters in the sand.')
-  }
-
-  return (
-    <section
-      className={`studio-section studio-game-section ${isFullscreen ? 'is-studio-fullscreen' : ''}`}
-      data-no-splash
-      aria-labelledby="studio-title"
-      ref={studioSectionRef}
-    >
-      <div className="studio-intro">
-        <div>
-          <p className="eyebrow">
-            <Waves size={16} />
-            Tiny tide club
-          </p>
-          <h2 aria-label="Come play in the sand." id="studio-title">
-            <KineticText lines={['Come play in', 'the sand.']} />
-          </h2>
-        </div>
-      </div>
-
-      <div className="studio-layout">
-        <div className="studio-canvas-shell">
-          <div className="studio-sandbar">
-            <canvas
-              aria-label="Self-playing sand game. A sea turtle wanders across the beach; tap or type to change its path."
-              className="splash-canvas"
-              onKeyDown={handleStudioKeyDown}
-              onPointerDown={handleSandPointerDown}
-              ref={canvasRef}
-              tabIndex={0}
-            />
-            <canvas aria-hidden="true" className="splash-shimmer-canvas" ref={shimmerCanvasRef} />
-            {attractor ? (
-              <span
-                aria-hidden="true"
-                className="studio-attractor"
-                style={
-                  {
-                    '--attractor-x': `${attractor.x}px`,
-                    '--attractor-y': `${attractor.y}px`,
-                  } as CSSProperties
-                }
-              />
-            ) : null}
-            <div aria-hidden="true" className="studio-creatures">
-              {studioBrushes.map((brush) => (
-                <div
-                  className={`studio-creature studio-creature-${brush.stamp}`}
-                  key={brush.id}
-                  ref={setCreatureNode(brush.id)}
-                  style={
-                    {
-                      '--studio-creature-glow': brush.creatureGlow,
-                      '--studio-creature-size': `${studioCreatureDisplaySize(brush)}px`,
-                    } as CSSProperties
-                  }
-                >
-                  <img alt="" decoding="async" loading="lazy" src={brush.creatureImage} />
-                </div>
-              ))}
-            </div>
-            <div className="studio-panel">
-              <p aria-live="polite" className="studio-voice">
-                {studioVoice}
-              </p>
-              <div className="studio-actions">
-                <button
-                  aria-pressed={!isPaused}
-                  className="icon-button studio-tool-button"
-                  onClick={togglePause}
-                  title={isPaused ? 'Play' : 'Pause'}
-                  type="button"
-                >
-                  {isPaused ? <Play size={18} /> : <Pause size={18} />}
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={scatterCreatures}
-                  title="New paths"
-                  type="button"
-                >
-                  <Sparkles size={18} />
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={() => void toggleFullscreen()}
-                  title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                  type="button"
-                >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                </button>
-                <button
-                  className="icon-button studio-tool-button"
-                  onClick={clearStudio}
-                  title="Smooth sand"
-                  type="button"
-                >
-                  <RotateCcw size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function DeferredStudio({ reducedMotion }: { reducedMotion: boolean }) {
-  const [shouldMount, setShouldMount] = useState(
-    () => typeof window !== 'undefined' && window.location.hash === '#studio',
-  )
-  const placeholderRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (shouldMount) {
-      return
-    }
-
-    const placeholder = placeholderRef.current
-
-    if (!placeholder || !('IntersectionObserver' in window)) {
-      setShouldMount(true)
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldMount(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '900px 0px' },
-    )
-
-    observer.observe(placeholder)
-
-    return () => observer.disconnect()
-  }, [shouldMount])
-
-  return (
-    <div
-      className={`studio-deferred ${shouldMount ? 'is-mounted' : ''}`}
-      id="studio"
-      ref={placeholderRef}
-    >
-      {shouldMount ? <SplashStudio reducedMotion={reducedMotion} /> : null}
-    </div>
-  )
-}
-
-function DropFilmsSection({
-  films,
-  products,
-  status,
-}: {
-  films: DropFilm[]
-  products: Product[]
-  status: 'idle' | 'loading' | 'ready' | 'error'
-}) {
-  const [activeFilmIndex, setActiveFilmIndex] = useState(0)
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null)
-  const carouselRef = useRef<HTMLDivElement | null>(null)
-  const dragStartXRef = useRef<number | null>(null)
-  const dragDeltaXRef = useRef(0)
-  const dragFrameRef = useRef<number | null>(null)
-  const suppressCardClickRef = useRef(false)
-  const hasUploadedFilms = films.some((film) => film.source === 'uploaded')
-  const filmStorySummaries = [
-    'A tiny texture study in sea-glass gel.',
-    'Watch the slow rise return like a tide.',
-    'Pearl beads, soft pops, and a little shine.',
-    'A coastal edit for gifting in small waves.',
-    'A quick look at the freebie-sized squeeze.',
-  ]
-
-  useEffect(() => {
-    setActiveFilmIndex((current) => films.length === 0 ? 0 : Math.min(current, films.length - 1))
-    setActiveVideoId(null)
-  }, [films.length])
-
-  useEffect(() => {
-    return () => {
-      if (dragFrameRef.current !== null) {
-        window.cancelAnimationFrame(dragFrameRef.current)
-      }
-    }
-  }, [])
-
-  const moveCarousel = (direction: 'back' | 'forward') => {
-    if (films.length < 2) {
-      return
-    }
-
-    setActiveVideoId(null)
-    setActiveFilmIndex((current) => (
-      direction === 'forward'
-        ? (current + 1) % films.length
-        : (current - 1 + films.length) % films.length
-    ))
-  }
-
-  const relativeFilmIndex = (index: number) => {
-    if (films.length < 2) {
-      return 0
-    }
-
-    let offset = (index - activeFilmIndex + films.length) % films.length
-
-    if (offset > films.length / 2) {
-      offset -= films.length
-    }
-
-    return offset
-  }
-
-  const visibleFilms = films
-    .map((film, index) => ({ film, index, relativeIndex: relativeFilmIndex(index) }))
-    .filter(({ relativeIndex }) => Math.abs(relativeIndex) <= 2)
-
-  const applyCarouselDrag = (deltaX: number, dragging: boolean) => {
-    const carousel = carouselRef.current
-
-    if (!carousel) {
-      return
-    }
-
-    carousel.style.setProperty('--film-drag-x', `${deltaX}px`)
-
-    if (dragging) {
-      carousel.dataset.dragging = 'true'
-    } else {
-      delete carousel.dataset.dragging
-    }
-  }
-
-  const resetCarouselDrag = () => {
-    if (dragFrameRef.current !== null) {
-      window.cancelAnimationFrame(dragFrameRef.current)
-      dragFrameRef.current = null
-    }
-
-    dragDeltaXRef.current = 0
-    applyCarouselDrag(0, false)
-  }
-
-  const handleFilmCarouselKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
-      return
-    }
-
-    event.preventDefault()
-    moveCarousel(event.key === 'ArrowRight' ? 'forward' : 'back')
-  }
-
-  const handleFilmCarouselPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-
-    if (target.closest('video, button, a, input')) {
-      return
-    }
-
-    dragStartXRef.current = event.clientX
-    dragDeltaXRef.current = 0
-    suppressCardClickRef.current = false
-    event.currentTarget.setPointerCapture(event.pointerId)
-    applyCarouselDrag(0, true)
-  }
-
-  const handleFilmCarouselPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const startX = dragStartXRef.current
-
-    if (startX === null) {
-      return
-    }
-
-    const maxDrag = Math.min(140, event.currentTarget.clientWidth * 0.28)
-    const deltaX = Math.max(-maxDrag, Math.min(maxDrag, event.clientX - startX))
-    dragDeltaXRef.current = deltaX
-
-    if (Math.abs(deltaX) > 7) {
-      suppressCardClickRef.current = true
-    }
-
-    if (dragFrameRef.current !== null) {
-      return
-    }
-
-    dragFrameRef.current = window.requestAnimationFrame(() => {
-      dragFrameRef.current = null
-      applyCarouselDrag(dragDeltaXRef.current, true)
-    })
-  }
-
-  const finishFilmCarouselPointer = (
-    event: PointerEvent<HTMLDivElement>,
-    cancelled = false,
-  ) => {
-    const startX = dragStartXRef.current
-    dragStartXRef.current = null
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-
-    if (startX === null) {
-      resetCarouselDrag()
-      return
-    }
-
-    const deltaX = dragDeltaXRef.current || event.clientX - startX
-    resetCarouselDrag()
-
-    if (suppressCardClickRef.current) {
-      window.setTimeout(() => {
-        suppressCardClickRef.current = false
-      }, 0)
-    }
-
-    if (cancelled || Math.abs(deltaX) < 44) {
-      return
-    }
-
-    moveCarousel(deltaX < 0 ? 'forward' : 'back')
-  }
-
-  return (
-    <section className="films-section" id="films" aria-labelledby="films-title">
-      <div className="film-carousel-heading">
-        <h2 aria-label="More stories for you." id="films-title">
-          <KineticText lines={['More stories', 'for you.']} />
-        </h2>
-        <p aria-live="polite" className="sr-only">
-          {status === 'loading'
-            ? 'Loading drop films.'
-            : films[activeFilmIndex]
-              ? `${hasUploadedFilms ? 'Live' : 'Preview'} story ${activeFilmIndex + 1} of ${films.length}: ${films[activeFilmIndex].title}.`
-              : 'No drop films are available.'}
-        </p>
-      </div>
-      <div
-        aria-label="Drop film stories. Use arrow keys or swipe to navigate."
-        className="film-carousel"
-        data-no-splash
-        onKeyDown={handleFilmCarouselKeyDown}
-        onPointerCancel={(event) => finishFilmCarouselPointer(event, true)}
-        onPointerDown={handleFilmCarouselPointerDown}
-        onPointerMove={handleFilmCarouselPointerMove}
-        onPointerUp={finishFilmCarouselPointer}
-        ref={carouselRef}
-        role="region"
-        tabIndex={0}
-      >
-        {visibleFilms.map(({ film, index, relativeIndex }) => {
-          const filmProduct = products[index % products.length] ?? catalogProducts[0]
-          const filmDepth = Math.abs(relativeIndex)
-          const isActive = relativeIndex === 0
-          const isVideoActive = Boolean(film.url && isActive && activeVideoId === film.id)
-          const storySummary = film.source === 'uploaded'
-            ? 'Fresh from the latest drop, ready to preview.'
-            : filmStorySummaries[index % filmStorySummaries.length]
-          const filmPositionStyle = {
-            '--film-opacity': filmDepth === 2 ? 0.74 : 1,
-            '--film-rotation': `${relativeIndex * 6}deg`,
-            '--film-scale': 1 - filmDepth * 0.045,
-            '--film-x': `${relativeIndex * 66}%`,
-            '--film-x-mobile': `${relativeIndex * 6}%`,
-            '--film-x-tablet': `${relativeIndex * 28}%`,
-            '--film-y': `${filmDepth === 0 ? 0 : filmDepth === 1 ? 30 : 88}px`,
-            zIndex: 10 - filmDepth,
-          } as CSSProperties
-
-          return (
-            <article
-              aria-hidden={!isActive}
-              aria-label={`Film ${index + 1} of ${films.length}: ${film.title}`}
-              className="film-story-card"
-              data-film-active={isActive}
-              data-film-offset={relativeIndex}
-              id={`film-story-${slugify(film.id)}`}
-              key={film.id}
-              onClick={() => {
-                if (suppressCardClickRef.current) {
-                  suppressCardClickRef.current = false
-                  return
-                }
-
-                if (!isActive && Math.abs(relativeIndex) <= 2) {
-                  setActiveVideoId(null)
-                  setActiveFilmIndex(index)
-                } else if (isActive && film.url) {
-                  setActiveVideoId(film.id)
-                }
-              }}
-              style={filmPositionStyle}
-            >
-              <div
-                className="film-card-media"
-                onMouseEnter={() => {
-                  if (isActive && film.url) {
-                    setActiveVideoId(film.id)
-                  }
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.querySelector('video')?.pause()
-                }}
-              >
-                <div
-                  aria-hidden={isVideoActive}
-                  aria-label={isVideoActive ? undefined : film.title}
-                  className="film-thumb"
-                  role={isVideoActive ? undefined : 'img'}
-                >
-                  <ProductVisual className="film-thumb-visual" product={filmProduct} />
-                  {film.url && isActive && !isVideoActive ? (
-                    <button
-                      aria-label={`Play ${film.title}`}
-                      className="film-play-badge"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setActiveVideoId(film.id)
-                      }}
-                      type="button"
-                    >
-                      <Play size={20} />
-                    </button>
-                  ) : !film.url || !isActive ? (
-                    <span className="film-play-badge">
-                      <Play size={20} />
-                    </span>
-                  ) : null}
-                </div>
-                {isVideoActive ? (
-                  <video
-                    aria-label={film.title}
-                    autoPlay
-                    controls
-                    loop
-                    muted
-                    playsInline
-                    preload="none"
-                    src={film.url}
-                    tabIndex={0}
-                  />
-                ) : null}
-              </div>
-              <div className="film-card-copy">
-                <h3 className="film-card-title">{film.title}</h3>
-                <p className="film-card-summary">{storySummary}</p>
-                <span className="film-card-meta">
-                  Watch {film.durationSeconds ? `${Math.round(film.durationSeconds)} sec` : '30 sec'}
-                  <ArrowRight aria-hidden="true" size={13} />
-                </span>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-      <div aria-label="Drop film carousel navigation" className="film-carousel-controls" data-no-splash role="group">
-        <button
-          aria-label="Previous film story"
-          className="film-carousel-button"
-          disabled={films.length < 2}
-          onClick={() => moveCarousel('back')}
-          type="button"
-        >
-          <ArrowLeft size={22} />
-        </button>
-        <span aria-hidden="true" className="film-carousel-position">
-          <strong>{String(activeFilmIndex + 1).padStart(2, '0')}</strong>
-          <span>/</span>
-          {String(films.length).padStart(2, '0')}
-        </span>
-        <button
-          aria-label="Next film story"
-          className="film-carousel-button"
-          disabled={films.length < 2}
-          onClick={() => moveCarousel('forward')}
-          type="button"
-        >
-          <ArrowRight size={22} />
-        </button>
-      </div>
-    </section>
   )
 }
 
@@ -3324,7 +2311,7 @@ function DropFilmAdmin({
           Media admin
         </p>
         <h1 id="film-admin-title">Upload product media and drop films.</h1>
-        <a className="button ghost-button" href="#films">
+        <a className="button ghost-button" href="#top">
           Back to storefront
         </a>
       </div>
@@ -3818,34 +2805,33 @@ function DropFilmAdmin({
   )
 }
 
+function CoastCareNote({ className }: { className?: string }) {
+  return (
+    <div className={className ? `about-coast-note ${className}` : 'about-coast-note'}>
+      <Heart aria-hidden="true" size={22} />
+      <div>
+        <strong>Taking care of our coast</strong>
+        <p>
+          We set aside a portion of every sale for environmental giving through{' '}
+          <a href="https://www.onepercentfortheplanet.org/" rel="noreferrer" target="_blank">
+            1% for the Planet <ExternalLink size={14} />
+          </a>{' '}
+          and{' '}
+          <a href="https://www.seahugger.org/" rel="noreferrer" target="_blank">
+            Sea Hugger <ExternalLink size={14} />
+          </a>
+          .
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function AboutSection() {
   return (
     <section className="about-section" id="about" aria-labelledby="about-title">
       <div aria-hidden="true" className="about-tide-wash" />
       <div className="about-section-inner">
-        <figure className="about-keepsake">
-          <div className="about-photo-frame">
-            <picture>
-              <source srcSet={aboutBeachPhotoWebp} type="image/webp" />
-              <img
-                alt="Ira and Joni standing with bodyboards on the beach in Half Moon Bay."
-                decoding="async"
-                height="1183"
-                loading="lazy"
-                src={aboutBeachPhoto}
-                width="692"
-              />
-            </picture>
-            <span aria-hidden="true" className="about-frame-shell">
-              <Shell size={22} strokeWidth={1.8} />
-            </span>
-          </div>
-          <figcaption>
-            <MapPin aria-hidden="true" size={15} />
-            Half Moon Bay, California
-          </figcaption>
-        </figure>
-
         <div className="about-section-copy">
           <p className="eyebrow">
             <Sparkles size={16} />
@@ -3865,31 +2851,7 @@ function AboutSection() {
             </p>
           </div>
 
-          <blockquote className="about-squish-test">
-            <span>Our house rule</span>
-            <p>
-              If it doesn't pass the official Ira-and-Joni squish test, it doesn't make it onto the
-              shelf.
-            </p>
-          </blockquote>
-
-          <div className="about-coast-note">
-            <Heart aria-hidden="true" size={22} />
-            <div>
-              <strong>Taking care of our coast</strong>
-              <p>
-                We set aside a portion of every sale for environmental giving through{' '}
-                <a href="https://www.onepercentfortheplanet.org/" rel="noreferrer" target="_blank">
-                  1% for the Planet <ExternalLink size={14} />
-                </a>{' '}
-                and{' '}
-                <a href="https://www.seahugger.org/" rel="noreferrer" target="_blank">
-                  Sea Hugger <ExternalLink size={14} />
-                </a>
-                .
-              </p>
-            </div>
-          </div>
+          <CoastCareNote />
 
           <div className="about-signature">
             <span>Thanks for squishing with us,</span>
@@ -3992,6 +2954,75 @@ const policyCopy = {
   sections: { body: string; heading: string }[]
   title: string
 }>
+
+function ProductPage({
+  media,
+  onAddToCart,
+  product,
+}: {
+  media: ProductMedia[]
+  onAddToCart: (product: Product, event: MouseEvent<HTMLButtonElement>) => void
+  product: Product
+}) {
+  const isPurchasable = Boolean(
+    product.price !== null &&
+    product.inventoryQuantity !== 0 &&
+    (!product.shopifyVariantId || product.availableForSale !== false),
+  )
+  const buttonLabel = product.inventoryQuantity === 0 ||
+    (product.shopifyVariantId && product.availableForSale === false)
+    ? 'Sold out'
+    : 'Add to cart'
+  const inventoryCopy = typeof product.inventoryQuantity === 'number' &&
+    product.inventoryQuantity > 0
+    ? `only ${Math.floor(product.inventoryQuantity)} left`
+    : null
+
+  return (
+    <section
+      aria-labelledby={`product-page-${product.id}-title`}
+      className="product-page"
+      id={`product-${product.id}`}
+    >
+      <a className="product-page-back" href="#shop">
+        <ArrowLeft size={16} />
+        Back to shop
+      </a>
+
+      <div className="product-page-inner">
+        <div className="product-page-media">
+          <ProductMediaGallery layout="page" media={media} product={product} />
+        </div>
+
+        <div className="product-page-copy">
+          <p className="eyebrow">{product.tag}</p>
+          <h1 id={`product-page-${product.id}-title`}>{product.name}</h1>
+          <p className="product-page-subtitle">{product.subtitle}</p>
+          <p className="product-page-price">
+            {product.price === null ? 'Price pending' : currency.format(product.price)}
+          </p>
+          <p className="product-page-description">{product.description}</p>
+          <button
+            aria-label={`${buttonLabel}: ${product.name}${inventoryCopy ? `, ${inventoryCopy}` : ''}`}
+            className="button product-button product-page-button"
+            disabled={!isPurchasable}
+            onClick={(event) => onAddToCart(product, event)}
+            type="button"
+          >
+            <span className="product-button-action">
+              <Plus size={17} />
+              {buttonLabel}
+            </span>
+            {isPurchasable && inventoryCopy ? (
+              <span className="product-button-inventory">{inventoryCopy}</span>
+            ) : null}
+          </button>
+          <CoastCareNote className="product-page-coast-note" />
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function PolicyModal({ kind, onClose }: { kind: PolicyKind; onClose: () => void }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -4109,7 +3140,6 @@ function App() {
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [products, setProducts] = useState<Product[]>(catalogProducts)
   const [dropFilms, setDropFilms] = useState<DropFilm[]>(placeholderDropFilms)
-  const [dropFilmsStatus, setDropFilmsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [productMediaByProduct, setProductMediaByProduct] = useState<ProductMediaByProduct>({})
   const [productMediaStatus, setProductMediaStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [shopifyStatus, setShopifyStatus] = useState<
@@ -4119,7 +3149,7 @@ function App() {
     typeof window === 'undefined' ? '' : window.location.hash,
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode)
+  const [themeMode] = useState<ThemeMode>(getInitialThemeMode)
   const [openPolicy, setOpenPolicy] = useState<PolicyKind | null>(null)
   const [splashes, setSplashes] = useState<Splash[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
@@ -4143,8 +3173,6 @@ function App() {
   }, [themeMode])
 
   const loadDropFilms = useCallback(async () => {
-    setDropFilmsStatus('loading')
-
     try {
       const response = await fetch('/api/drop-films', {
         cache: 'no-store',
@@ -4157,10 +3185,8 @@ function App() {
 
       const data = (await response.json()) as DropFilmsResponse
       setDropFilms(normalizeDropFilms(data))
-      setDropFilmsStatus('ready')
     } catch {
       setDropFilms(placeholderDropFilms)
-      setDropFilmsStatus('error')
     }
   }, [])
 
@@ -4346,17 +3372,15 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const loadStorefrontMedia = () => {
-      void Promise.all([loadDropFilms(), loadProductMedia(), loadShopifyCatalog()])
-    }
-
     if (isAdminRoute) {
       void loadDropFilms()
       void loadProductMedia()
       return
     }
 
-    return scheduleIdleTask(loadStorefrontMedia)
+    return scheduleIdleTask(() => {
+      void Promise.all([loadProductMedia(), loadShopifyCatalog()])
+    })
   }, [isAdminRoute, loadDropFilms, loadProductMedia, loadShopifyCatalog])
 
   useEffect(() => {
@@ -4373,7 +3397,7 @@ function App() {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      if (!hashRoute || hashRoute === '#top') {
+      if (!hashRoute || hashRoute === '#top' || hashRoute.startsWith('#product/')) {
         window.scrollTo({ behavior: 'auto', top: 0 })
         return
       }
@@ -4482,6 +3506,17 @@ function App() {
       }),
     [productMediaByProduct, products],
   )
+
+  const activeProductId = useMemo(() => parseProductRouteId(hashRoute), [hashRoute])
+
+  const activeProduct = useMemo(
+    () => storefrontProducts.find((product) => product.id === activeProductId) ?? null,
+    [activeProductId, storefrontProducts],
+  )
+
+  const openProductPage = useCallback((product: Product) => {
+    window.location.hash = productPageHash(product.id)
+  }, [])
 
   const filteredProducts = useMemo(() => {
     return storefrontProducts.filter((product) =>
@@ -4838,7 +3873,6 @@ function App() {
         <span className="painted-wash painted-wash-shop" />
         <span className="painted-wash painted-wash-bundle" />
         <span className="painted-wash painted-wash-films" />
-        <span className="painted-wash painted-wash-studio" />
         <span className="painted-stroke painted-stroke-one" />
         <span className="painted-stroke painted-stroke-two" />
         <span className="painted-stroke painted-stroke-three" />
@@ -4889,8 +3923,7 @@ function App() {
             <img alt="" src={brandMark} />
           </span>
           <span>
-            Saltwater
-            <strong>Squish</strong>
+            Saltwater <strong>Squish</strong>
           </span>
         </a>
 
@@ -4899,14 +3932,6 @@ function App() {
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
           </a>
-          <a href="#studio">
-            <span aria-hidden="true" className="nav-icon nav-icon-studio"><Turtle size={15} /></span>
-            Studio
-          </a>
-          <a href="#films">
-            <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
-            Films
-          </a>
           <a aria-current={hashRoute === '#about' ? 'location' : undefined} href="#about">
             <span aria-hidden="true" className="nav-icon nav-icon-about"><Waves size={15} /></span>
             About
@@ -4914,22 +3939,6 @@ function App() {
         </nav>
 
         <div className="header-actions">
-          <button
-            aria-label={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
-            aria-pressed={themeMode === 'night'}
-            className="theme-mode-toggle"
-            data-mode={themeMode}
-            onClick={() => setThemeMode((currentMode) => currentMode === 'day' ? 'night' : 'day')}
-            title={`Switch to ${themeMode === 'day' ? 'night' : 'day'} mode`}
-            type="button"
-          >
-            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-day">
-              <Sun size={16} strokeWidth={2} />
-            </span>
-            <span aria-hidden="true" className="theme-mode-icon theme-mode-icon-night">
-              <MoonStar size={15} strokeWidth={2} />
-            </span>
-          </button>
           <button
             aria-controls="mobile-nav"
             aria-expanded={mobileNavOpen}
@@ -4964,14 +3973,6 @@ function App() {
             <span aria-hidden="true" className="nav-icon nav-icon-shop"><Shell size={15} /></span>
             Shop
           </a>
-          <a href="#studio" onClick={() => setMobileNavOpen(false)}>
-            <span aria-hidden="true" className="nav-icon nav-icon-studio"><Turtle size={15} /></span>
-            Studio
-          </a>
-          <a href="#films" onClick={() => setMobileNavOpen(false)}>
-            <span aria-hidden="true" className="nav-icon nav-icon-films"><FishSymbol size={15} /></span>
-            Films
-          </a>
           <a
             aria-current={hashRoute === '#about' ? 'location' : undefined}
             href="#about"
@@ -5000,32 +4001,17 @@ function App() {
             products={products}
             productMediaByProduct={productMediaByProduct}
           />
+        ) : activeProduct ? (
+          <ProductPage
+            media={productMediaByProduct[activeProduct.id] ?? []}
+            onAddToCart={addToCart}
+            product={activeProduct}
+          />
         ) : (
           <>
         <section className="hero-section">
-          <picture>
-            <source srcSet={heroImageWebp} type="image/webp" />
-            <img
-              alt="Coastal squishy toys on pale sand beside shallow turquoise water."
-              className="hero-photo"
-              decoding="sync"
-              fetchPriority="high"
-              height="810"
-              loading="eager"
-              src={heroImage}
-              width="1440"
-            />
-          </picture>
           <div className="hero-tint" />
-          <div aria-hidden="true" className="hero-story-lines">
-            <span>Half Moon Bay</span>
-            <span>California coast</span>
-          </div>
           <div className="hero-content">
-            <p className="eyebrow">
-              <Waves size={17} />
-              A Half Moon Bay tide tale
-            </p>
             <h1 aria-label="Saltwater Squish">
               <KineticText lines={['Saltwater', 'Squish']} tone="lagoon" />
             </h1>
@@ -5046,12 +4032,6 @@ function App() {
             </div>
           </div>
         </section>
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-water-sand"
-          data-shoreline
-        />
 
         <section
           className="shop-section"
@@ -5104,14 +4084,32 @@ function App() {
 
               return (
                 <article className="product-card" key={product.id}>
-                  <ProductMediaGallery media={productMediaByProduct[product.id] ?? []} product={product} />
+                  <div
+                    className="product-card-media"
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest('button, video')) {
+                        return
+                      }
+
+                      openProductPage(product)
+                    }}
+                  >
+                    <ProductMediaGallery media={productMediaByProduct[product.id] ?? []} product={product} />
+                  </div>
                   <div className="product-card-body">
-                    <div className="product-meta">
-                      <strong>
-                        {product.price === null ? 'Price pending' : currency.format(product.price)}
-                      </strong>
-                    </div>
-                    <h3>{product.name}</h3>
+                    <button
+                      aria-label={`View details for ${product.name}`}
+                      className="product-card-title-button"
+                      onClick={() => openProductPage(product)}
+                      type="button"
+                    >
+                      <div className="product-meta">
+                        <strong>
+                          {product.price === null ? 'Price pending' : currency.format(product.price)}
+                        </strong>
+                      </div>
+                      <h3>{product.name}</h3>
+                    </button>
                     <button
                       aria-label={`${buttonLabel}: ${product.name}${inventoryCopy ? `, ${inventoryCopy}` : ''}`}
                       className="button product-button"
@@ -5134,27 +4132,12 @@ function App() {
           </div>
         </section>
 
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-sand-water"
-          data-shoreline
-        />
-
-        <DropFilmsSection films={dropFilms} products={storefrontProducts} status={dropFilmsStatus} />
-
         <AboutSection />
-
-        <div
-          aria-hidden="true"
-          className="shoreline-bridge shoreline-bridge-studio shoreline-bridge-water-sand"
-          data-shoreline
-        />
           </>
         )}
       </main>
 
       <footer className="site-footer">
-        {!isAdminRoute ? <DeferredStudio reducedMotion={reducedMotion} /> : null}
         <div className="footer-bar">
           <div aria-hidden="true" className="footer-ocean-scene">
             <span className="footer-wave footer-wave-back" />
@@ -5165,45 +4148,6 @@ function App() {
             <span className="footer-bubble footer-bubble-four" />
             <span className="footer-bubble footer-bubble-five" />
             <span className="footer-bubble footer-bubble-six" />
-            <span className="footer-swimmer footer-swimmer-one">
-              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
-            </span>
-            <span className="footer-swimmer footer-swimmer-two">
-              <img alt="" decoding="async" loading="lazy" src={reefFishAqua} />
-            </span>
-            <span className="footer-swimmer footer-swimmer-three is-reverse">
-              <img alt="" decoding="async" loading="lazy" src={reefFishSun} />
-            </span>
-            <span className="footer-shark-family">
-              <img
-                alt=""
-                className="footer-daddy-shark"
-                decoding="async"
-                loading="lazy"
-                src={blueDaddyShark}
-              />
-              <img
-                alt=""
-                className="footer-mama-shark"
-                decoding="async"
-                loading="lazy"
-                src={purpleMamaShark}
-              />
-              <img
-                alt=""
-                className="footer-baby-shark"
-                decoding="async"
-                loading="lazy"
-                src={pinkShark}
-              />
-            </span>
-            <span className="footer-swimmer footer-swimmer-five">
-              <img alt="" decoding="async" loading="lazy" src={reefFishCoral} />
-            </span>
-          </div>
-          <div className="footer-signoff">
-            <span aria-hidden="true" className="footer-sun" />
-            <strong>See you by the tide.</strong>
           </div>
           <nav aria-label="Footer navigation">
             <button onClick={() => setOpenPolicy('shipping')} type="button">

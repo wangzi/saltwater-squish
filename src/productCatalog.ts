@@ -10,11 +10,11 @@ export type CatalogStatus = 'draft' | 'published'
 
 export const productCategories = [
   'Slow rise',
-  'Sugar coated',
-  'Coconut oil',
   'Vaseline',
-  'Handpicked',
-  'NorCal made',
+  'Coconut oil',
+  'Crunchy',
+  'Slushy',
+  'Taba',
 ] as const
 
 export type ProductCategory = (typeof productCategories)[number]
@@ -77,7 +77,7 @@ export const catalogProducts: CatalogProduct[] = [
   },
   {
     aliases: ['blue crunchy bead ball'],
-    categories: ['Sugar coated'],
+    categories: ['Crunchy'],
     collection: 'Crunchy Beads',
     description: 'A cool-toned bead ball with a dense, satisfying crunch.',
     feel: 'Crunchy',
@@ -93,7 +93,7 @@ export const catalogProducts: CatalogProduct[] = [
   },
   {
     aliases: ['pink crunchy bead ball', 'crunchy', 'crunchy 1', 'crunchy 2'],
-    categories: ['Sugar coated'],
+    categories: ['Crunchy'],
     collection: 'Crunchy Beads',
     description: 'A pale pink bead ball with a soft shell and crisp texture.',
     feel: 'Crunchy',
@@ -141,6 +141,7 @@ export const catalogProducts: CatalogProduct[] = [
   },
   {
     aliases: ['peach slushy', 'peach slushy ball', 'peach sluchy ball'],
+    categories: ['Slushy'],
     collection: 'Slushy Balls',
     description: 'A peach-pink slushy ball with a cool, softly textured squeeze.',
     feel: 'Slushy',
@@ -156,6 +157,7 @@ export const catalogProducts: CatalogProduct[] = [
   },
   {
     aliases: ['pillow taba', 'pillow taba 2', 'pillow taba squishy'],
+    categories: ['Taba'],
     collection: 'Cloud Soft',
     description: 'A white pillow-shaped taba with a quiet, pillowy return.',
     feel: 'Cloud Soft',
@@ -219,6 +221,7 @@ export const catalogProducts: CatalogProduct[] = [
   },
   {
     aliases: ['watermelon slushy ball'],
+    categories: ['Slushy'],
     collection: 'Slushy Balls',
     description: 'A watermelon-red slushy ball with tiny seed details.',
     feel: 'Slushy',
@@ -239,6 +242,7 @@ export const catalogProducts: CatalogProduct[] = [
       'photo jul 03 2026 10 49 53 am',
       'photo jul 03 2026 10 58 23 am',
     ],
+    categories: ['Vaseline'],
     collection: 'Novelty',
     description: 'A playful Chiboki toothpaste squishy with its clear carry pouch.',
     feel: 'Cloud Soft',
@@ -251,6 +255,22 @@ export const catalogProducts: CatalogProduct[] = [
     status: 'published',
     subtitle: 'Toothpaste squishy',
     tag: 'Novelty',
+  },
+  {
+    aliases: ['flan pudding', 'flan pudding squishy'],
+    categories: ['Crunchy'],
+    collection: 'Novelty',
+    description: 'A caramel-topped flan pudding squishy with a crisp, crunchy shell.',
+    feel: 'Crunchy',
+    id: 'flan-pudding-squishy',
+    imagePosition: [0, 0],
+    name: 'Flan Pudding Squishy',
+    price: null,
+    sku: 'SWS-FLN-CRM',
+    sortOrder: 140,
+    status: 'published',
+    subtitle: 'Flan pudding squishy',
+    tag: 'Crunchy',
   },
 ]
 
