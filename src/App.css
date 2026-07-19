@@ -5557,7 +5557,7 @@ button.film-play-badge {
 .hero-content {
   width: min(810px, calc(100% - 64px));
   margin-left: max(32px, calc((100vw - 1260px) / 2));
-  padding-bottom: 132px;
+  padding-bottom: 0;
 }
 
 .hero-content .eyebrow {
@@ -5969,7 +5969,7 @@ button.film-play-badge {
     width: calc(100% - 32px);
     margin: 0 16px;
     padding-top: 64px;
-    padding-bottom: 116px;
+    padding-bottom: 0;
   }
 
   .hero-content h1 {
