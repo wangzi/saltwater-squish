@@ -463,24 +463,30 @@ function normalizeCatalogProducts(response: ProductMediaResponse) {
   }
 
   const seedById = new Map(catalogProducts.map((product) => [product.id, product]))
+  const revisionsByProduct = response.revisionsByProduct ?? {}
 
-  return response.products
-    .map((product) => {
-      const seed = seedById.get(product.id)
+  const blobProducts = response.products.map((product) => {
+    const seed = seedById.get(product.id)
 
-      return {
-        ...(seed ?? product),
-        ...product,
-        aliases: product.aliases ?? seed?.aliases ?? [],
-        categories: product.categories ?? seed?.categories ?? [],
-        imagePosition: product.imagePosition ?? seed?.imagePosition ?? [0, 0],
-        price:
-          typeof product.price === 'number' && Number.isFinite(product.price)
-            ? product.price
-            : null,
-      } satisfies Product
-    })
-    .sort((left, right) => left.sortOrder - right.sortOrder)
+    return {
+      ...(seed ?? product),
+      ...product,
+      aliases: product.aliases ?? seed?.aliases ?? [],
+      categories: product.categories ?? seed?.categories ?? [],
+      imagePosition: product.imagePosition ?? seed?.imagePosition ?? [0, 0],
+      price:
+        typeof product.price === 'number' && Number.isFinite(product.price)
+          ? product.price
+          : null,
+    } satisfies Product
+  })
+
+  const blobProductIds = new Set(blobProducts.map((product) => product.id))
+  const seedOnlyProducts = catalogProducts.filter(
+    (product) => !blobProductIds.has(product.id) && !revisionsByProduct[product.id],
+  )
+
+  return [...blobProducts, ...seedOnlyProducts].sort((left, right) => left.sortOrder - right.sortOrder)
 }
 
 function KineticText({
@@ -1372,7 +1378,7 @@ function DropFilmAdmin({
     const assignments = files.map((file, index) => ({
       file,
       id: `${file.name}-${file.size}-${file.lastModified}-${index}`,
-      productId: matchProductIdFromFileName(file.name, products),
+      productId: matchProductIdFromFileName(file.name, catalogProducts),
     }))
     const unmatchedCount = assignments.filter((item) => !item.productId).length
 
