@@ -2197,7 +2197,7 @@ button.film-play-badge {
 
 .admin-product-commerce-form {
   display: grid;
-  grid-template-columns: minmax(110px, 1fr) minmax(100px, 0.8fr) auto auto;
+  grid-template-columns: minmax(110px, 1fr) auto auto;
   align-items: end;
   gap: 8px;
   padding: 10px;
@@ -2206,12 +2206,33 @@ button.film-play-badge {
   background: rgba(255, 253, 247, 0.62);
 }
 
+.admin-product-inventory-form {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) auto auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(54, 50, 44, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.62);
+}
+
+.admin-product-inventory-form label > span:first-child,
 .admin-product-commerce-form label > span:first-child {
   color: var(--muted);
   font-size: 0.74rem;
 }
 
-.film-admin-card .admin-product-commerce-form input[type="number"] {
+.admin-inventory-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.film-admin-card .admin-product-commerce-form input[type="number"],
+.film-admin-card .admin-product-inventory-form input[type="number"] {
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -2247,7 +2268,8 @@ button.film-play-badge {
 }
 
 @media (max-width: 620px) {
-  .admin-product-commerce-form {
+  .admin-product-commerce-form,
+  .admin-product-inventory-form {
     grid-template-columns: 1fr 1fr;
   }
 

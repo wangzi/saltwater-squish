@@ -1,6 +1,8 @@
 declare const process: {
   env: {
+    SHOPIFY_ADMIN_ACCESS_TOKEN?: string
     SHOPIFY_API_VERSION?: string
+    SHOPIFY_LOCATION_ID?: string
     SHOPIFY_STOREFRONT_PRIVATE_TOKEN?: string
     SHOPIFY_STORE_DOMAIN?: string
   }
@@ -41,6 +43,19 @@ export function getShopifyConfiguration() {
     configured: Boolean(storeDomain),
     privateToken: process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN?.trim() ?? '',
     storeDomain,
+  }
+}
+
+export function getShopifyAdminConfiguration() {
+  const configuration = getShopifyConfiguration()
+  const adminAccessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN?.trim() ?? ''
+  const locationId = process.env.SHOPIFY_LOCATION_ID?.trim() ?? ''
+
+  return {
+    ...configuration,
+    adminAccessToken,
+    adminConfigured: configuration.configured && Boolean(adminAccessToken),
+    locationId,
   }
 }
 
@@ -107,4 +122,180 @@ export async function shopifyStorefrontRequest<T>({
   }
 
   return payload.data
+}
+
+export async function shopifyAdminRequest<T>({
+  query,
+  variables,
+}: {
+  query: string
+  variables?: Record<string, unknown>
+}) {
+  const configuration = getShopifyAdminConfiguration()
+
+  if (!configuration.adminConfigured) {
+    throw new Error('Shopify admin inventory updates are not configured.')
+  }
+
+  const response = await fetch(
+    `https://${configuration.storeDomain}/admin/api/${configuration.apiVersion}/graphql.json`,
+    {
+      body: JSON.stringify({ query, variables }),
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'X-Shopify-Access-Token': configuration.adminAccessToken,
+      },
+      method: 'POST',
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as ShopifyGraphqlResponse<T> | null
+
+  if (!response.ok) {
+    throw new Error(`Shopify admin responded with HTTP ${response.status}.`)
+  }
+
+  if (!payload) {
+    throw new Error('Shopify admin returned an unreadable response.')
+  }
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors[0]?.message || 'Shopify admin rejected the request.')
+  }
+
+  if (!payload.data) {
+    throw new Error('Shopify admin returned no data.')
+  }
+
+  return payload.data
+}
+
+type ShopifyInventoryLocationData = {
+  locations: {
+    nodes: Array<{ id: string }>
+  }
+}
+
+type ShopifyVariantInventoryData = {
+  productVariant: {
+    inventoryItem: {
+      id: string
+    } | null
+  } | null
+}
+
+type ShopifyInventorySetData = {
+  inventorySetQuantities: {
+    inventoryAdjustmentGroup: {
+      createdAt: string
+    } | null
+    userErrors: Array<{ field?: string[] | null; message?: string }>
+  } | null
+}
+
+const primaryLocationQuery = `#graphql
+  query SaltwaterSquishPrimaryLocation {
+    locations(first: 1) {
+      nodes {
+        id
+      }
+    }
+  }
+`
+
+const variantInventoryItemQuery = `#graphql
+  query SaltwaterSquishVariantInventoryItem($id: ID!) {
+    productVariant(id: $id) {
+      inventoryItem {
+        id
+      }
+    }
+  }
+`
+
+const inventorySetQuantitiesMutation = `#graphql
+  mutation SaltwaterSquishSetInventory($input: InventorySetQuantitiesInput!) {
+    inventorySetQuantities(input: $input) {
+      inventoryAdjustmentGroup {
+        createdAt
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`
+
+let cachedPrimaryLocationId = ''
+
+async function resolvePrimaryLocationId() {
+  const configuration = getShopifyAdminConfiguration()
+
+  if (configuration.locationId) {
+    return configuration.locationId
+  }
+
+  if (cachedPrimaryLocationId) {
+    return cachedPrimaryLocationId
+  }
+
+  const data = await shopifyAdminRequest<ShopifyInventoryLocationData>({
+    query: primaryLocationQuery,
+  })
+  const locationId = data.locations.nodes[0]?.id ?? ''
+
+  if (!locationId) {
+    throw new Error('Shopify location could not be resolved.')
+  }
+
+  cachedPrimaryLocationId = locationId
+  return locationId
+}
+
+export async function setVariantInventoryQuantity(variantId: string, quantity: number) {
+  const normalizedVariantId = variantId.trim()
+  const normalizedQuantity = Math.max(0, Math.floor(quantity))
+
+  if (!normalizedVariantId) {
+    throw new Error('Choose a valid Shopify variant.')
+  }
+
+  const [locationId, variantData] = await Promise.all([
+    resolvePrimaryLocationId(),
+    shopifyAdminRequest<ShopifyVariantInventoryData>({
+      query: variantInventoryItemQuery,
+      variables: { id: normalizedVariantId },
+    }),
+  ])
+  const inventoryItemId = variantData.productVariant?.inventoryItem?.id
+
+  if (!inventoryItemId) {
+    throw new Error('Shopify inventory item could not be resolved.')
+  }
+
+  const data = await shopifyAdminRequest<ShopifyInventorySetData>({
+    query: inventorySetQuantitiesMutation,
+    variables: {
+      input: {
+        ignoreCompareQuantity: true,
+        name: 'available',
+        quantities: [
+          {
+            inventoryItemId,
+            locationId,
+            quantity: normalizedQuantity,
+          },
+        ],
+        reason: 'correction',
+      },
+    },
+  })
+  const userErrors = data.inventorySetQuantities?.userErrors ?? []
+
+  if (userErrors.length > 0) {
+    throw new Error(userErrors[0]?.message || 'Shopify rejected the inventory update.')
+  }
+
+  return normalizedQuantity
 }
