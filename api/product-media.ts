@@ -36,24 +36,6 @@ type ProductMediaAsset = {
   variants?: ProductImageVariant[]
 }
 
-type CatalogProduct = {
-  aliases?: string[]
-  categories?: string[]
-  collection: string
-  description: string
-  feel: string
-  id: string
-  imagePosition: [number, number]
-  inventoryQuantity?: number
-  name: string
-  price: number | null
-  sku: string
-  sortOrder: number
-  status: 'draft' | 'published'
-  subtitle: string
-  tag: string
-}
-
 function isProductMediaKind(value: unknown): value is ProductMediaKind {
   return value === 'image' || value === 'video'
 }
@@ -62,12 +44,8 @@ export default async function handler(_request: ApiRequest, response: ApiRespons
   response.setHeader('Cache-Control', 'no-store')
 
   try {
-    const metadataEntries = await listLatestProductMediaManifests<
-      ProductMediaAsset,
-      CatalogProduct
-    >()
+    const metadataEntries = await listLatestProductMediaManifests<ProductMediaAsset, unknown>()
     const mediaByProduct: Record<string, ProductMediaAsset[]> = {}
-    const products: CatalogProduct[] = []
     const revisionsByProduct: Record<string, string> = {}
 
     metadataEntries.forEach(({ manifest: metadata, revision }) => {
@@ -101,21 +79,15 @@ export default async function handler(_request: ApiRequest, response: ApiRespons
         return rightTime - leftTime
       })
 
-      if (metadata.product?.id === productId && metadata.product.sku) {
-        products.push(metadata.product)
-      }
     })
-
-    products.sort((left, right) => left.sortOrder - right.sortOrder)
 
     return response.status(200).json({
       mediaByProduct,
-      products,
       revisionsByProduct,
       source: 'blob',
     })
   } catch (error) {
     console.warn('Product media unavailable', error)
-    return response.status(200).json({ mediaByProduct: {}, products: [], source: 'unavailable' })
+    return response.status(200).json({ mediaByProduct: {}, source: 'unavailable' })
   }
 }

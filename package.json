@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "import:products": "node scripts/import-product-media.mjs",
     "migrate:product-manifests": "node scripts/migrate-product-media-manifests.mjs",
+    "seed:products": "node scripts/seed-products.mjs",
     "optimize:product-images": "node scripts/optimize-product-images.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -16,6 +17,7 @@
     "@fontsource-variable/caveat": "^5.2.8",
     "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource/cherry-bomb-one": "^5.2.7",
+    "@supabase/supabase-js": "^2.110.8",
     "@vercel/blob": "^2.5.0",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",

@@ -41,9 +41,9 @@ npm run build
 
 ## Shopify Handoff
 
-The storefront matches Shopify variants to the stable `SWS-*` SKUs in `src/productCatalog.ts`.
+The storefront matches Shopify variants to the stable `SWS-*` SKUs stored in Supabase.
 When Shopify is configured, prices and availability come from Shopify and checkout uses a
-Shopify Cart `checkoutUrl`.
+Shopify Cart `checkoutUrl`. Product catalog data is loaded from Supabase via `/api/products`.
 
 Set these locally or in Vercel:
 
@@ -51,8 +51,16 @@ Set these locally or in Vercel:
 SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_VERSION=2026-07
 SHOPIFY_STOREFRONT_PRIVATE_TOKEN=your-private-headless-token
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Run the SQL in `supabase/migrations/` against your Supabase project, then seed products:
+
+```bash
+npm run seed:products
 ```
 
 The private token is optional for Shopify's tokenless product and cart fields, but recommended
-for authenticated server-side Storefront API requests. Never expose it through a `VITE_*`
-environment variable.
+for authenticated server-side Storefront API requests. Never expose Shopify or Supabase
+service-role keys through a `VITE_*` environment variable.

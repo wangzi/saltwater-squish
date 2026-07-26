@@ -44,7 +44,6 @@ import './App.css'
 import brandMark from './assets/optimized/saltwater-squish-mark.webp?no-inline'
 import productSheet from './assets/optimized/product-sheet.webp'
 import {
-  catalogProducts,
   matchProductIdFromFileName,
   productCategories,
   type CatalogProduct,
@@ -124,8 +123,13 @@ type DropFilmsResponse = {
 
 type ProductMediaResponse = {
   mediaByProduct?: ProductMediaByProduct
-  products?: Product[]
   revisionsByProduct?: Record<string, string>
+  source?: string
+}
+
+type ProductsResponse = {
+  error?: string
+  products?: Product[]
   source?: string
 }
 
@@ -455,32 +459,6 @@ function normalizeProductMedia(response: ProductMediaResponse): ProductMediaByPr
         .sort(compareProductMedia),
     ]),
   )
-}
-
-function normalizeCatalogProducts(response: ProductMediaResponse) {
-  if (!Array.isArray(response.products)) {
-    return catalogProducts
-  }
-
-  const seedById = new Map(catalogProducts.map((product) => [product.id, product]))
-
-  return response.products
-    .map((product) => {
-      const seed = seedById.get(product.id)
-
-      return {
-        ...(seed ?? product),
-        ...product,
-        aliases: product.aliases ?? seed?.aliases ?? [],
-        categories: product.categories ?? seed?.categories ?? [],
-        imagePosition: product.imagePosition ?? seed?.imagePosition ?? [0, 0],
-        price:
-          typeof product.price === 'number' && Number.isFinite(product.price)
-            ? product.price
-            : null,
-      } satisfies Product
-    })
-    .sort((left, right) => left.sortOrder - right.sortOrder)
 }
 
 function KineticText({
@@ -998,7 +976,7 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      const response = await fetch('/api/product-media/product', {
+      const response = await fetch('/api/products/product', {
         body: JSON.stringify({ name, productId: product.id }),
         headers: {
           'content-type': 'application/json',
@@ -1015,7 +993,6 @@ function DropFilmAdmin({
         throw new Error(payload?.error ?? 'Could not rename that product.')
       }
 
-      onProductRevision(product.id, payload?.revision)
       onProductRenamed(product.id, name)
       setEditingProductId('')
       setEditingProductName('')
@@ -1089,7 +1066,7 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      const response = await fetch('/api/product-media/product', {
+      const response = await fetch('/api/products/product', {
         body: JSON.stringify({ productId: product.id }),
         headers: {
           'content-type': 'application/json',
@@ -1106,7 +1083,6 @@ function DropFilmAdmin({
         throw new Error(payload?.error ?? 'Could not delete that product.')
       }
 
-      onProductRevision(product.id, payload?.revision)
       onProductDeleted(product.id)
       setAdminMessage(`${product.name} was removed. Its hosted media files were kept.`)
     } catch (error) {
@@ -1127,7 +1103,7 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      const response = await fetch('/api/product-media/product', {
+      const response = await fetch('/api/products/product', {
         body: JSON.stringify({ categories, productId: product.id }),
         headers: {
           'content-type': 'application/json',
@@ -1144,7 +1120,6 @@ function DropFilmAdmin({
         throw new Error(payload?.error ?? 'Could not update product categories.')
       }
 
-      onProductRevision(product.id, payload?.revision)
       onProductCategoriesChanged(product.id, categories)
       setAdminMessage(`Updated categories for ${product.name}.`)
     } catch (error) {
@@ -1168,7 +1143,7 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      const response = await fetch('/api/product-media/product', {
+      const response = await fetch('/api/products/product', {
         body: JSON.stringify({ price, productId: product.id }),
         headers: {
           'content-type': 'application/json',
@@ -1185,7 +1160,6 @@ function DropFilmAdmin({
         throw new Error(payload?.error ?? 'Could not update price.')
       }
 
-      onProductRevision(product.id, payload?.revision)
       onProductCommerceChanged(product.id, price)
       setEditingCommerceProductId('')
       setEditingPrice('')
@@ -1211,26 +1185,8 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      const response = await fetch('/api/product-media/product', {
-        body: JSON.stringify({
-          inventoryQuantity,
-          product: {
-            aliases: product.aliases,
-            categories: product.categories,
-            collection: product.collection,
-            description: product.description,
-            feel: product.feel,
-            imagePosition: product.imagePosition,
-            name: product.name,
-            price: product.price,
-            sku: product.sku,
-            sortOrder: product.sortOrder,
-            status: product.status,
-            subtitle: product.subtitle,
-            tag: product.tag,
-          },
-          productId: product.id,
-        }),
+      const response = await fetch('/api/products/product', {
+        body: JSON.stringify({ inventoryQuantity, productId: product.id }),
         headers: {
           'content-type': 'application/json',
           'x-drop-admin-password': adminPassword.trim(),
@@ -1239,14 +1195,12 @@ function DropFilmAdmin({
       })
       const payload = (await response.json().catch(() => null)) as {
         error?: string
-        revision?: string
       } | null
 
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Could not update inventory.')
       }
 
-      onProductRevision(product.id, payload?.revision)
       onProductInventoryChanged(product.id, inventoryQuantity)
       setEditingInventoryProductId('')
       setEditingQuantity('')
@@ -2511,7 +2465,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [isCheckingOut, setIsCheckingOut] = useState(false)
-  const [products, setProducts] = useState<Product[]>(catalogProducts)
+  const [products, setProducts] = useState<Product[]>([])
   const [dropFilms, setDropFilms] = useState<DropFilm[]>(placeholderDropFilms)
   const [productMediaByProduct, setProductMediaByProduct] = useState<ProductMediaByProduct>({})
   const [productMediaStatus, setProductMediaStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
@@ -2563,6 +2517,30 @@ function App() {
     }
   }, [])
 
+  const loadProducts = useCallback(async (adminPassword = '') => {
+    try {
+      const headers: Record<string, string> = { accept: 'application/json' }
+
+      if (adminPassword.trim()) {
+        headers['x-drop-admin-password'] = adminPassword.trim()
+      }
+
+      const response = await fetch('/api/products', {
+        cache: 'no-store',
+        headers,
+      })
+      const data = (await response.json()) as ProductsResponse
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Products are unavailable.')
+      }
+
+      setProducts(Array.isArray(data.products) ? data.products : [])
+    } catch {
+      setProducts([])
+    }
+  }, [])
+
   const loadProductMedia = useCallback(async () => {
     setProductMediaStatus('loading')
 
@@ -2583,30 +2561,10 @@ function App() {
       }
 
       const normalizedMedia = normalizeProductMedia(data)
-      const normalizedProducts = normalizeCatalogProducts(data)
       const revisionEntries = Object.entries(data.revisionsByProduct ?? {})
 
       if (revisionEntries.length === 0) {
         setProductMediaByProduct(normalizedMedia)
-        setProducts((currentProducts) =>
-          normalizedProducts.map((product) => {
-            const currentProduct = currentProducts.find((item) => item.id === product.id)
-
-            if (!currentProduct?.shopifyVariantId) {
-              return product
-            }
-
-            return {
-              ...product,
-              availableForSale: currentProduct.availableForSale,
-              currencyCode: currentProduct.currencyCode,
-              price: currentProduct.price,
-              shopifyHandle: currentProduct.shopifyHandle,
-              shopifyProductId: currentProduct.shopifyProductId,
-              shopifyVariantId: currentProduct.shopifyVariantId,
-            }
-          }),
-        )
         setProductMediaStatus('ready')
         return
       }
@@ -2639,52 +2597,6 @@ function App() {
         })
 
         return nextMedia
-      })
-      setProducts((currentProducts) => {
-        const incomingProductsById = new Map(
-          normalizedProducts.map((product) => [product.id, product]),
-        )
-        const mergeShopifyState = (product: Product) => {
-          const currentProduct = currentProducts.find((item) => item.id === product.id)
-
-          if (!currentProduct?.shopifyVariantId) {
-            return product
-          }
-
-          return {
-            ...product,
-            availableForSale: currentProduct.availableForSale,
-            currencyCode: currentProduct.currencyCode,
-            price: currentProduct.price,
-            shopifyHandle: currentProduct.shopifyHandle,
-            shopifyProductId: currentProduct.shopifyProductId,
-            shopifyVariantId: currentProduct.shopifyVariantId,
-          }
-        }
-
-        if (!hadKnownRevisions) {
-          return normalizedProducts.map(mergeShopifyState)
-        }
-
-        const nextProducts = currentProducts
-          .filter((product) => (
-            !acceptedProductIds.has(product.id) || incomingProductsById.has(product.id)
-          ))
-          .map((product) => {
-            const incomingProduct = incomingProductsById.get(product.id)
-            return incomingProduct && acceptedProductIds.has(product.id)
-              ? mergeShopifyState(incomingProduct)
-              : product
-          })
-        const existingIds = new Set(nextProducts.map((product) => product.id))
-
-        normalizedProducts.forEach((product) => {
-          if (acceptedProductIds.has(product.id) && !existingIds.has(product.id)) {
-            nextProducts.push(mergeShopifyState(product))
-          }
-        })
-
-        return nextProducts.sort((left, right) => left.sortOrder - right.sortOrder)
       })
       setProductMediaStatus('ready')
     } catch {
@@ -2747,14 +2659,28 @@ function App() {
   useEffect(() => {
     if (isAdminRoute) {
       void loadDropFilms()
-      void loadProductMedia()
+      let adminPassword = ''
+
+      try {
+        adminPassword = window.sessionStorage.getItem('saltwater-drop-film-password') ?? ''
+      } catch {
+        adminPassword = ''
+      }
+
+      void Promise.all([
+        loadProducts(adminPassword),
+        loadProductMedia(),
+      ])
       return
     }
 
     return scheduleIdleTask(() => {
-      void Promise.all([loadProductMedia(), loadShopifyCatalog()])
+      void (async () => {
+        await loadProducts()
+        await Promise.all([loadProductMedia(), loadShopifyCatalog()])
+      })()
     })
-  }, [isAdminRoute, loadDropFilms, loadProductMedia, loadShopifyCatalog])
+  }, [isAdminRoute, loadDropFilms, loadProductMedia, loadProducts, loadShopifyCatalog])
 
   useEffect(() => {
     const updateHashRoute = () => {
