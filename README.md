@@ -42,9 +42,8 @@ npm run build
 ## Shopify Handoff
 
 The storefront matches Shopify variants to the stable `SWS-*` SKUs in `src/productCatalog.ts`.
-When Shopify is configured, prices, availability, and inventory counts come from Shopify and
-checkout uses a Shopify Cart `checkoutUrl`. Inventory can be updated from `#admin` when the
-Shopify Admin API token is configured.
+When Shopify is configured, prices and availability come from Shopify and checkout uses a
+Shopify Cart `checkoutUrl`.
 
 Set these locally or in Vercel:
 
@@ -52,12 +51,8 @@ Set these locally or in Vercel:
 SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_VERSION=2026-07
 SHOPIFY_STOREFRONT_PRIVATE_TOKEN=your-private-headless-token
-SHOPIFY_ADMIN_ACCESS_TOKEN=your-admin-api-token
 ```
 
 The private token is optional for Shopify's tokenless product and cart fields, but recommended
-for authenticated server-side Storefront API requests. Enable the
-`unauthenticated_read_product_inventory` scope on the Storefront API token so inventory counts
-sync from Shopify. The admin token needs `write_inventory` (and `read_locations` unless
-`SHOPIFY_LOCATION_ID` is set) for inventory updates from `#admin`. Never expose either token
-through a `VITE_*` environment variable.
+for authenticated server-side Storefront API requests. Never expose it through a `VITE_*`
+environment variable.

@@ -29,24 +29,12 @@ type ShopifyCatalogData = {
             amount: string
             currencyCode: string
           }
-          quantityAvailable?: number | null
           sku?: string | null
           title: string
         }>
       }
     }>
   }
-}
-
-function inventoryFromVariant(variant: {
-  availableForSale: boolean
-  quantityAvailable?: number | null
-}) {
-  if (typeof variant.quantityAvailable === 'number' && Number.isFinite(variant.quantityAvailable)) {
-    return Math.max(0, Math.floor(variant.quantityAvailable))
-  }
-
-  return variant.availableForSale ? undefined : 0
 }
 
 const catalogQuery = `#graphql
@@ -62,7 +50,6 @@ const catalogQuery = `#graphql
             sku
             title
             availableForSale
-            quantityAvailable
             price {
               amount
               currencyCode
@@ -110,7 +97,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
           availableForSale: variant.availableForSale,
           currencyCode: variant.price.currencyCode,
           handle: product.handle,
-          inventoryQuantity: inventoryFromVariant(variant),
           price: variant.price.amount,
           productId: product.id,
           productTitle: product.title,

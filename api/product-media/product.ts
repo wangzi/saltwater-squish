@@ -48,6 +48,7 @@ type ProductRequestBody = {
   inventoryQuantity?: unknown
   name?: unknown
   price?: unknown
+  product?: Record<string, unknown>
   productId?: unknown
 }
 
@@ -104,6 +105,56 @@ function cleanInventoryQuantity(value: unknown) {
     : undefined
 }
 
+function cleanTitle(value: unknown) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
+}
+
+function cleanSku(value: unknown) {
+  return typeof value === 'string' ? value.trim().toUpperCase().slice(0, 40) : ''
+}
+
+function cleanBootstrapProduct(
+  value: Record<string, unknown> | undefined,
+  productId: string,
+) {
+  if (!value) {
+    return undefined
+  }
+
+  const allowedFeels = new Set(['Clear Jelly', 'Slow Rise', 'Crunchy', 'Slushy', 'Cloud Soft', 'Icy'])
+  const price = typeof value.price === 'number' && Number.isFinite(value.price) && value.price >= 0
+    ? Math.round(value.price * 100) / 100
+    : null
+  const imagePosition: [number, number] =
+    Array.isArray(value.imagePosition) && value.imagePosition.length === 2
+      ? [Number(value.imagePosition[0]) || 0, Number(value.imagePosition[1]) || 0]
+      : [0, 0]
+  const name = cleanTitle(value.name)
+  const sku = cleanSku(value.sku)
+
+  if (!name || !sku) {
+    return undefined
+  }
+
+  return {
+    categories: cleanCategories(value.categories) ?? [],
+    collection: cleanTitle(value.collection) || 'Shop',
+    description: cleanTitle(value.description),
+    feel: allowedFeels.has(String(value.feel ?? '')) ? String(value.feel) : 'Cloud Soft',
+    id: productId,
+    imagePosition,
+    name,
+    price,
+    sku,
+    sortOrder: typeof value.sortOrder === 'number' && Number.isFinite(value.sortOrder)
+      ? Math.round(value.sortOrder)
+      : 999,
+    status: value.status === 'draft' ? 'draft' as const : 'published' as const,
+    subtitle: cleanTitle(value.subtitle),
+    tag: cleanTitle(value.tag) || 'Shop',
+  } satisfies CatalogProduct
+}
+
 async function readJsonBody<T>(request: ApiRequest): Promise<T> {
   if (typeof request.body === 'string') {
     return JSON.parse(request.body) as T
@@ -142,11 +193,11 @@ export default async function handler(request: ApiRequest, response: ApiResponse
 
   const existing = await findMetadata(productId)
 
-  if (!existing?.metadata.product || existing.metadata.product.id !== productId) {
-    return response.status(404).json({ error: 'Product not found.' })
-  }
-
   if (request.method === 'DELETE') {
+    if (!existing?.metadata.product || existing.metadata.product.id !== productId) {
+      return response.status(404).json({ error: 'Product not found.' })
+    }
+
     const deletedAt = new Date().toISOString()
     const saved = await writeProductMediaManifest<ProductMediaAsset, CatalogProduct>(
       productId,
@@ -165,19 +216,25 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   const categories = cleanCategories(body.categories)
   const price = cleanPrice(body.price)
   const inventoryQuantity = cleanInventoryQuantity(body.inventoryQuantity)
+  const bootstrapProduct = cleanBootstrapProduct(body.product, productId)
+  const baseProduct = existing?.metadata.product ?? bootstrapProduct
+
+  if (!baseProduct || baseProduct.id !== productId) {
+    return response.status(404).json({ error: 'Product not found.' })
+  }
 
   if (!name && !categories && price === undefined && inventoryQuantity === undefined) {
     return response.status(400).json({ error: 'Enter valid product changes.' })
   }
 
-  const resolvedName = name || existing.metadata.product.name
+  const resolvedName = name || baseProduct.name
 
   const metadata = {
     assets: name
-      ? (existing.metadata.assets ?? []).map((asset) => ({ ...asset, skuName: resolvedName }))
-      : existing.metadata.assets,
+      ? (existing?.metadata.assets ?? []).map((asset) => ({ ...asset, skuName: resolvedName }))
+      : existing?.metadata.assets ?? [],
     product: {
-      ...existing.metadata.product,
+      ...baseProduct,
       ...(categories ? { categories } : {}),
       ...(inventoryQuantity !== undefined ? { inventoryQuantity } : {}),
       name: resolvedName,

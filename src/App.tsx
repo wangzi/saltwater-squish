@@ -133,7 +133,6 @@ type ShopifyCatalogVariant = {
   availableForSale: boolean
   currencyCode: string
   handle: string
-  inventoryQuantity?: number
   price: string
   productId: string
   productTitle: string
@@ -1212,53 +1211,43 @@ function DropFilmAdmin({
     setAdminMessage('')
 
     try {
-      if (product.shopifyVariantId) {
-        const response = await fetch('/api/shopify/inventory', {
-          body: JSON.stringify({
-            inventoryQuantity,
-            variantId: product.shopifyVariantId,
-          }),
-          headers: {
-            'content-type': 'application/json',
-            'x-drop-admin-password': adminPassword.trim(),
+      const response = await fetch('/api/product-media/product', {
+        body: JSON.stringify({
+          inventoryQuantity,
+          product: {
+            aliases: product.aliases,
+            categories: product.categories,
+            collection: product.collection,
+            description: product.description,
+            feel: product.feel,
+            imagePosition: product.imagePosition,
+            name: product.name,
+            price: product.price,
+            sku: product.sku,
+            sortOrder: product.sortOrder,
+            status: product.status,
+            subtitle: product.subtitle,
+            tag: product.tag,
           },
-          method: 'PATCH',
-        })
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string
-          inventoryQuantity?: number
-        } | null
+          productId: product.id,
+        }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'PATCH',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
 
-        if (!response.ok) {
-          throw new Error(payload?.error ?? 'Could not update Shopify inventory.')
-        }
-
-        onProductInventoryChanged(
-          product.id,
-          payload?.inventoryQuantity ?? inventoryQuantity,
-        )
-      } else {
-        const response = await fetch('/api/product-media/product', {
-          body: JSON.stringify({ inventoryQuantity, productId: product.id }),
-          headers: {
-            'content-type': 'application/json',
-            'x-drop-admin-password': adminPassword.trim(),
-          },
-          method: 'PATCH',
-        })
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string
-          revision?: string
-        } | null
-
-        if (!response.ok) {
-          throw new Error(payload?.error ?? 'Could not update inventory.')
-        }
-
-        onProductRevision(product.id, payload?.revision)
-        onProductInventoryChanged(product.id, inventoryQuantity)
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Could not update inventory.')
       }
 
+      onProductRevision(product.id, payload?.revision)
+      onProductInventoryChanged(product.id, inventoryQuantity)
       setEditingInventoryProductId('')
       setEditingQuantity('')
       setAdminMessage(`Updated inventory for ${product.name}.`)
@@ -1969,9 +1958,7 @@ function DropFilmAdmin({
                             <small>
                               {product.sku} · {product.price === null
                                 ? 'Price pending'
-                                : currency.format(product.price)} · Qty {product.shopifyVariantId
-                                ? product.inventoryQuantity ?? 'Shopify pending'
-                                : product.inventoryQuantity ?? 'Not set'} ·{' '}
+                                : currency.format(product.price)} · Qty {product.inventoryQuantity ?? 'Not set'} ·{' '}
                               {media.length} file{media.length === 1 ? '' : 's'}
                             </small>
                           </div>
@@ -2093,9 +2080,7 @@ function DropFilmAdmin({
                           />
                         </label>
                         <p className="admin-inventory-hint">
-                          {product.shopifyVariantId
-                            ? 'Updates Shopify inventory for this variant.'
-                            : 'Saved to the local product manifest until Shopify is linked.'}
+                          Saved to the product manifest and used on the storefront.
                         </p>
                         <button
                           className="button primary-button admin-commerce-save"
@@ -2615,7 +2600,6 @@ function App() {
               ...product,
               availableForSale: currentProduct.availableForSale,
               currencyCode: currentProduct.currencyCode,
-              inventoryQuantity: currentProduct.inventoryQuantity,
               price: currentProduct.price,
               shopifyHandle: currentProduct.shopifyHandle,
               shopifyProductId: currentProduct.shopifyProductId,
@@ -2671,7 +2655,6 @@ function App() {
             ...product,
             availableForSale: currentProduct.availableForSale,
             currencyCode: currentProduct.currencyCode,
-            inventoryQuantity: currentProduct.inventoryQuantity,
             price: currentProduct.price,
             shopifyHandle: currentProduct.shopifyHandle,
             shopifyProductId: currentProduct.shopifyProductId,
@@ -2736,7 +2719,6 @@ function App() {
             return {
               ...product,
               availableForSale: false,
-              inventoryQuantity: 0,
               shopifyHandle: undefined,
               shopifyProductId: undefined,
               shopifyVariantId: undefined,
@@ -2749,7 +2731,6 @@ function App() {
             ...product,
             availableForSale: variant.availableForSale,
             currencyCode: variant.currencyCode,
-            inventoryQuantity: variant.inventoryQuantity,
             price: Number.isFinite(price) ? price : null,
             shopifyHandle: variant.handle,
             shopifyProductId: variant.productId,
@@ -2766,7 +2747,7 @@ function App() {
   useEffect(() => {
     if (isAdminRoute) {
       void loadDropFilms()
-      void Promise.all([loadProductMedia(), loadShopifyCatalog()])
+      void loadProductMedia()
       return
     }
 
@@ -2960,13 +2941,7 @@ function App() {
 
   const handleProductInventoryChanged = (productId: string, inventoryQuantity: number) => {
     setProducts((current) => current.map((product) => (
-      product.id === productId
-        ? {
-            ...product,
-            availableForSale: inventoryQuantity > 0 ? product.availableForSale : false,
-            inventoryQuantity,
-          }
-        : product
+      product.id === productId ? { ...product, inventoryQuantity } : product
     )))
   }
 
