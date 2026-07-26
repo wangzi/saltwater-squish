@@ -791,6 +791,7 @@ function DropFilmAdmin({
   onProductCategoriesChanged,
   onProductCommerceChanged,
   onProductDeleted,
+  onProductInventoryChanged,
   onProductMediaDeleted,
   onProductMediaReconciled,
   onProductMediaRefresh,
@@ -803,8 +804,9 @@ function DropFilmAdmin({
   films: DropFilm[]
   onFilmsRefresh: () => Promise<void>
   onProductCategoriesChanged: (productId: string, categories: ProductCategory[]) => void
-  onProductCommerceChanged: (productId: string, price: number, inventoryQuantity: number) => void
+  onProductCommerceChanged: (productId: string, price: number) => void
   onProductDeleted: (productId: string) => void
+  onProductInventoryChanged: (productId: string, inventoryQuantity: number) => void
   onProductMediaDeleted: (productId: string, assetPathname: string) => void
   onProductMediaReconciled: (
     removed: Array<{ pathname: string; productId: string }>,
@@ -856,8 +858,10 @@ function DropFilmAdmin({
   const [taggingProductId, setTaggingProductId] = useState('')
   const [editingCommerceProductId, setEditingCommerceProductId] = useState('')
   const [editingPrice, setEditingPrice] = useState('')
+  const [editingInventoryProductId, setEditingInventoryProductId] = useState('')
   const [editingQuantity, setEditingQuantity] = useState('')
   const [savingCommerceProductId, setSavingCommerceProductId] = useState('')
+  const [savingInventoryProductId, setSavingInventoryProductId] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const productMediaInputRef = useRef<HTMLInputElement | null>(null)
   const uploadedFilms = films.filter((film) => film.source === 'uploaded')
@@ -1153,15 +1157,9 @@ function DropFilmAdmin({
   const saveProductCommerce = async (event: FormEvent<HTMLFormElement>, product: Product) => {
     event.preventDefault()
     const price = Number(editingPrice)
-    const inventoryQuantity = Number(editingQuantity)
 
     if (!Number.isFinite(price) || price < 0) {
       setAdminError('Enter a valid price of zero or more.')
-      return
-    }
-
-    if (!Number.isInteger(inventoryQuantity) || inventoryQuantity < 0) {
-      setAdminError('Enter a whole-number quantity of zero or more.')
       return
     }
 
@@ -1171,7 +1169,7 @@ function DropFilmAdmin({
 
     try {
       const response = await fetch('/api/product-media/product', {
-        body: JSON.stringify({ inventoryQuantity, price, productId: product.id }),
+        body: JSON.stringify({ price, productId: product.id }),
         headers: {
           'content-type': 'application/json',
           'x-drop-admin-password': adminPassword.trim(),
@@ -1184,19 +1182,79 @@ function DropFilmAdmin({
       } | null
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? 'Could not update price and quantity.')
+        throw new Error(payload?.error ?? 'Could not update price.')
       }
 
       onProductRevision(product.id, payload?.revision)
-      onProductCommerceChanged(product.id, price, inventoryQuantity)
+      onProductCommerceChanged(product.id, price)
       setEditingCommerceProductId('')
       setEditingPrice('')
-      setEditingQuantity('')
-      setAdminMessage(`Updated price and quantity for ${product.name}.`)
+      setAdminMessage(`Updated price for ${product.name}.`)
     } catch (error) {
-      setAdminError(error instanceof Error ? error.message : 'Could not update price and quantity.')
+      setAdminError(error instanceof Error ? error.message : 'Could not update price.')
     } finally {
       setSavingCommerceProductId('')
+    }
+  }
+
+  const saveProductInventory = async (event: FormEvent<HTMLFormElement>, product: Product) => {
+    event.preventDefault()
+    const inventoryQuantity = Number(editingQuantity)
+
+    if (!Number.isInteger(inventoryQuantity) || inventoryQuantity < 0) {
+      setAdminError('Enter a whole-number quantity of zero or more.')
+      return
+    }
+
+    setSavingInventoryProductId(product.id)
+    setAdminError('')
+    setAdminMessage('')
+
+    try {
+      const response = await fetch('/api/product-media/product', {
+        body: JSON.stringify({
+          inventoryQuantity,
+          product: {
+            aliases: product.aliases,
+            categories: product.categories,
+            collection: product.collection,
+            description: product.description,
+            feel: product.feel,
+            imagePosition: product.imagePosition,
+            name: product.name,
+            price: product.price,
+            sku: product.sku,
+            sortOrder: product.sortOrder,
+            status: product.status,
+            subtitle: product.subtitle,
+            tag: product.tag,
+          },
+          productId: product.id,
+        }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'PATCH',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        revision?: string
+      } | null
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Could not update inventory.')
+      }
+
+      onProductRevision(product.id, payload?.revision)
+      onProductInventoryChanged(product.id, inventoryQuantity)
+      setEditingInventoryProductId('')
+      setEditingQuantity('')
+      setAdminMessage(`Updated inventory for ${product.name}.`)
+    } catch (error) {
+      setAdminError(error instanceof Error ? error.message : 'Could not update inventory.')
+    } finally {
+      setSavingInventoryProductId('')
     }
   }
 
@@ -1906,17 +1964,30 @@ function DropFilmAdmin({
                           </div>
                           <div className="admin-product-actions">
                             <button
-                              aria-label={`Edit price and quantity for ${resolvedProduct.name}`}
+                              aria-label={`Edit price for ${resolvedProduct.name}`}
                               className="icon-button"
                               onClick={() => {
                                 setEditingCommerceProductId(product.id)
+                                setEditingInventoryProductId('')
                                 setEditingPrice(product.price === null ? '' : String(product.price))
-                                setEditingQuantity(String(product.inventoryQuantity ?? 0))
                               }}
-                              title="Edit price and quantity"
+                              title="Edit price"
                               type="button"
                             >
                               <BadgeDollarSign size={17} />
+                            </button>
+                            <button
+                              aria-label={`Edit inventory for ${resolvedProduct.name}`}
+                              className="icon-button"
+                              onClick={() => {
+                                setEditingInventoryProductId(product.id)
+                                setEditingCommerceProductId('')
+                                setEditingQuantity(String(product.inventoryQuantity ?? 0))
+                              }}
+                              title="Edit inventory"
+                              type="button"
+                            >
+                              <Package size={17} />
                             </button>
                             <button
                               aria-label={`Rename ${resolvedProduct.name}`}
@@ -1967,9 +2038,37 @@ function DropFilmAdmin({
                             />
                           </span>
                         </label>
+                        <button
+                          className="button primary-button admin-commerce-save"
+                          disabled={savingCommerceProductId === product.id}
+                          type="submit"
+                        >
+                          <Check size={16} />
+                          Save
+                        </button>
+                        <button
+                          aria-label="Cancel price edit"
+                          className="icon-button"
+                          onClick={() => {
+                            setEditingCommerceProductId('')
+                            setEditingPrice('')
+                          }}
+                          title="Cancel"
+                          type="button"
+                        >
+                          <X size={17} />
+                        </button>
+                      </form>
+                    ) : null}
+                    {editingInventoryProductId === product.id ? (
+                      <form
+                        className="admin-product-inventory-form"
+                        onSubmit={(event) => void saveProductInventory(event, product)}
+                      >
                         <label htmlFor={`product-quantity-${product.id}`}>
-                          <span>Quantity</span>
+                          <span>Inventory</span>
                           <input
+                            autoFocus
                             id={`product-quantity-${product.id}`}
                             inputMode="numeric"
                             min="0"
@@ -1980,20 +2079,22 @@ function DropFilmAdmin({
                             value={editingQuantity}
                           />
                         </label>
+                        <p className="admin-inventory-hint">
+                          Saved to the product manifest and used on the storefront.
+                        </p>
                         <button
                           className="button primary-button admin-commerce-save"
-                          disabled={savingCommerceProductId === product.id}
+                          disabled={savingInventoryProductId === product.id}
                           type="submit"
                         >
                           <Check size={16} />
                           Save
                         </button>
                         <button
-                          aria-label="Cancel price and quantity edit"
+                          aria-label="Cancel inventory edit"
                           className="icon-button"
                           onClick={() => {
-                            setEditingCommerceProductId('')
-                            setEditingPrice('')
+                            setEditingInventoryProductId('')
                             setEditingQuantity('')
                           }}
                           title="Cancel"
@@ -2832,13 +2933,15 @@ function App() {
     )))
   }
 
-  const handleProductCommerceChanged = (
-    productId: string,
-    price: number,
-    inventoryQuantity: number,
-  ) => {
+  const handleProductCommerceChanged = (productId: string, price: number) => {
     setProducts((current) => current.map((product) => (
-      product.id === productId ? { ...product, inventoryQuantity, price } : product
+      product.id === productId ? { ...product, price } : product
+    )))
+  }
+
+  const handleProductInventoryChanged = (productId: string, inventoryQuantity: number) => {
+    setProducts((current) => current.map((product) => (
+      product.id === productId ? { ...product, inventoryQuantity } : product
     )))
   }
 
@@ -3264,6 +3367,7 @@ function App() {
             onProductCategoriesChanged={handleProductCategoriesChanged}
             onProductCommerceChanged={handleProductCommerceChanged}
             onProductDeleted={handleProductDeleted}
+            onProductInventoryChanged={handleProductInventoryChanged}
             onProductMediaDeleted={handleProductMediaDeleted}
             onProductMediaReconciled={handleProductMediaReconciled}
             onProductMediaRefresh={loadProductMedia}
