@@ -2110,6 +2110,70 @@ button.film-play-badge {
   gap: 10px;
 }
 
+.admin-product-media-library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-add-product-button {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.admin-add-product-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid rgba(54, 50, 44, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.62);
+}
+
+.admin-add-product-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-add-product-form label > span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.admin-add-product-form input,
+.admin-add-product-form select,
+.admin-add-product-form textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid rgba(54, 50, 44, 0.16);
+  border-radius: 12px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+}
+
+.admin-add-product-description {
+  grid-column: 1 / -1;
+}
+
+.admin-add-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .admin-add-product-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-product-media-list {
   display: grid;
   gap: 12px;

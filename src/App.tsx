@@ -46,6 +46,7 @@ import productSheet from './assets/optimized/product-sheet.webp'
 import {
   matchProductIdFromFileName,
   productCategories,
+  type CatalogFeel,
   type CatalogProduct,
   type ProductCategory,
 } from './productCatalog'
@@ -210,6 +211,15 @@ function scheduleIdleTask(task: () => void) {
 }
 
 const categoryFilters: CategoryFilter[] = ['All', ...productCategories]
+
+const productFeelOptions: CatalogFeel[] = [
+  'Clear Jelly',
+  'Slow Rise',
+  'Crunchy',
+  'Slushy',
+  'Cloud Soft',
+  'Icy',
+]
 
 const placeholderDropFilms: DropFilm[] = [
   {
@@ -768,6 +778,7 @@ function DropFilmAdmin({
   onFilmsRefresh,
   onProductCategoriesChanged,
   onProductCommerceChanged,
+  onProductCreated,
   onProductDeleted,
   onProductInventoryChanged,
   onProductMediaDeleted,
@@ -783,6 +794,7 @@ function DropFilmAdmin({
   onFilmsRefresh: () => Promise<void>
   onProductCategoriesChanged: (productId: string, categories: ProductCategory[]) => void
   onProductCommerceChanged: (productId: string, price: number) => void
+  onProductCreated: (product: Product) => void
   onProductDeleted: (productId: string) => void
   onProductInventoryChanged: (productId: string, inventoryQuantity: number) => void
   onProductMediaDeleted: (productId: string, assetPathname: string) => void
@@ -840,6 +852,15 @@ function DropFilmAdmin({
   const [editingQuantity, setEditingQuantity] = useState('')
   const [savingCommerceProductId, setSavingCommerceProductId] = useState('')
   const [savingInventoryProductId, setSavingInventoryProductId] = useState('')
+  const [isAddingProduct, setIsAddingProduct] = useState(false)
+  const [newProductName, setNewProductName] = useState('')
+  const [newProductSku, setNewProductSku] = useState('')
+  const [newProductFeel, setNewProductFeel] = useState<CatalogFeel>('Cloud Soft')
+  const [newProductCollection, setNewProductCollection] = useState('Shop')
+  const [newProductSubtitle, setNewProductSubtitle] = useState('')
+  const [newProductTag, setNewProductTag] = useState('')
+  const [newProductDescription, setNewProductDescription] = useState('')
+  const [savingNewProduct, setSavingNewProduct] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const productMediaInputRef = useRef<HTMLInputElement | null>(null)
   const uploadedFilms = films.filter((film) => film.source === 'uploaded')
@@ -1209,6 +1230,80 @@ function DropFilmAdmin({
       setAdminError(error instanceof Error ? error.message : 'Could not update inventory.')
     } finally {
       setSavingInventoryProductId('')
+    }
+  }
+
+  const resetNewProductForm = () => {
+    setIsAddingProduct(false)
+    setNewProductName('')
+    setNewProductSku('')
+    setNewProductFeel('Cloud Soft')
+    setNewProductCollection('Shop')
+    setNewProductSubtitle('')
+    setNewProductTag('')
+    setNewProductDescription('')
+  }
+
+  const saveNewProduct = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const name = newProductName.trim().replace(/\s+/g, ' ')
+    const sku = newProductSku.trim().toUpperCase()
+    const id = slugify(name)
+    const nextSortOrder = products.reduce(
+      (maxSortOrder, product) => Math.max(maxSortOrder, product.sortOrder),
+      0,
+    ) + 10
+
+    if (!name || !sku || !id) {
+      setAdminError('Enter a product name and SKU.')
+      return
+    }
+
+    if (products.some((product) => product.id === id || product.sku.toUpperCase() === sku)) {
+      setAdminError('A product with that name or SKU already exists.')
+      return
+    }
+
+    setSavingNewProduct(true)
+    setAdminError('')
+    setAdminMessage('')
+
+    try {
+      const response = await fetch('/api/products/product', {
+        body: JSON.stringify({
+          collection: newProductCollection.trim() || 'Shop',
+          description: newProductDescription.trim(),
+          feel: newProductFeel,
+          id,
+          name,
+          sku,
+          sortOrder: nextSortOrder,
+          status: 'published',
+          subtitle: newProductSubtitle.trim(),
+          tag: newProductTag.trim() || 'Shop',
+        }),
+        headers: {
+          'content-type': 'application/json',
+          'x-drop-admin-password': adminPassword.trim(),
+        },
+        method: 'POST',
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+        product?: Product
+      } | null
+
+      if (!response.ok || !payload?.product) {
+        throw new Error(payload?.error ?? 'Could not create that product.')
+      }
+
+      onProductCreated(payload.product)
+      resetNewProductForm()
+      setAdminMessage(`Added ${payload.product.name} to the catalog.`)
+    } catch (error) {
+      setAdminError(error instanceof Error ? error.message : 'Could not create that product.')
+    } finally {
+      setSavingNewProduct(false)
     }
   }
 
@@ -1833,6 +1928,18 @@ function DropFilmAdmin({
                 </span>
               </div>
               <div className="admin-product-media-library-actions">
+                <button
+                  className="button ghost-button admin-add-product-button"
+                  onClick={() => {
+                    setIsAddingProduct((current) => !current)
+                    setAdminError('')
+                    setAdminMessage('')
+                  }}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  Add product
+                </button>
                 {missingMediaCount > 0 ? (
                   <button
                     className="button ghost-button admin-prune-missing-button"
@@ -1855,6 +1962,104 @@ function DropFilmAdmin({
                 </button>
               </div>
             </div>
+
+            {isAddingProduct ? (
+              <form className="admin-add-product-form" onSubmit={(event) => void saveNewProduct(event)}>
+                <label htmlFor="new-product-name">
+                  <span>Name</span>
+                  <input
+                    autoFocus
+                    id="new-product-name"
+                    maxLength={100}
+                    onChange={(event) => setNewProductName(event.currentTarget.value)}
+                    required
+                    type="text"
+                    value={newProductName}
+                  />
+                </label>
+                <label htmlFor="new-product-sku">
+                  <span>SKU</span>
+                  <input
+                    id="new-product-sku"
+                    maxLength={40}
+                    onChange={(event) => setNewProductSku(event.currentTarget.value.toUpperCase())}
+                    placeholder="SWS-NEW-001"
+                    required
+                    type="text"
+                    value={newProductSku}
+                  />
+                </label>
+                <label htmlFor="new-product-feel">
+                  <span>Feel</span>
+                  <select
+                    id="new-product-feel"
+                    onChange={(event) => setNewProductFeel(event.currentTarget.value as CatalogFeel)}
+                    value={newProductFeel}
+                  >
+                    {productFeelOptions.map((feel) => (
+                      <option key={feel} value={feel}>{feel}</option>
+                    ))}
+                  </select>
+                </label>
+                <label htmlFor="new-product-collection">
+                  <span>Collection</span>
+                  <input
+                    id="new-product-collection"
+                    maxLength={120}
+                    onChange={(event) => setNewProductCollection(event.currentTarget.value)}
+                    type="text"
+                    value={newProductCollection}
+                  />
+                </label>
+                <label htmlFor="new-product-subtitle">
+                  <span>Subtitle</span>
+                  <input
+                    id="new-product-subtitle"
+                    maxLength={120}
+                    onChange={(event) => setNewProductSubtitle(event.currentTarget.value)}
+                    type="text"
+                    value={newProductSubtitle}
+                  />
+                </label>
+                <label htmlFor="new-product-tag">
+                  <span>Tag</span>
+                  <input
+                    id="new-product-tag"
+                    maxLength={120}
+                    onChange={(event) => setNewProductTag(event.currentTarget.value)}
+                    type="text"
+                    value={newProductTag}
+                  />
+                </label>
+                <label className="admin-add-product-description" htmlFor="new-product-description">
+                  <span>Description</span>
+                  <textarea
+                    id="new-product-description"
+                    maxLength={500}
+                    onChange={(event) => setNewProductDescription(event.currentTarget.value)}
+                    rows={3}
+                    value={newProductDescription}
+                  />
+                </label>
+                <div className="admin-add-product-actions">
+                  <button
+                    className="button primary-button"
+                    disabled={savingNewProduct}
+                    type="submit"
+                  >
+                    <Check size={16} />
+                    {savingNewProduct ? 'Saving' : 'Create product'}
+                  </button>
+                  <button
+                    className="button ghost-button"
+                    onClick={resetNewProductForm}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
 
             <div className="admin-product-media-list">
               {products.map((product) => {
@@ -2871,6 +3076,12 @@ function App() {
     )))
   }
 
+  const handleProductCreated = (product: Product) => {
+    setProducts((current) => [...current, product].sort(
+      (left, right) => left.sortOrder - right.sortOrder,
+    ))
+  }
+
   const handleProductDeleted = (productId: string) => {
     setProducts((current) => current.filter((product) => product.id !== productId))
     setProductMediaByProduct((current) => {
@@ -3292,6 +3503,7 @@ function App() {
             onFilmsRefresh={loadDropFilms}
             onProductCategoriesChanged={handleProductCategoriesChanged}
             onProductCommerceChanged={handleProductCommerceChanged}
+            onProductCreated={handleProductCreated}
             onProductDeleted={handleProductDeleted}
             onProductInventoryChanged={handleProductInventoryChanged}
             onProductMediaDeleted={handleProductMediaDeleted}
