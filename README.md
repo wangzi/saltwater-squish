@@ -62,14 +62,21 @@ environment variable.
 
 The `POST /api/shopify/order-paid` endpoint handles Shopify's `orders/paid` webhook. It matches
 paid line items to product manifests by SKU and decrements each manifest's
-`inventoryQuantity`. Processed orders are recorded in Vercel Blob so Shopify retries do not
-decrement inventory twice.
+`inventoryQuantity`. The `POST /api/shopify/order-cancelled` endpoint restores quantities from
+cancelled-order refund lines whose `restock_type` is `cancel`, `return`, or `legacy_restock`.
+It ignores orders that were not previously processed by the paid-order webhook. Processed
+events are recorded in Vercel Blob so Shopify retries do not adjust inventory twice.
 
-Configure a store-level webhook in **Shopify Admin → Settings → Notifications → Webhooks**:
+Configure two store-level webhooks in
+**Shopify Admin → Settings → Notifications → Webhooks**:
 
 - Event: **Order payment**
 - Format: **JSON**
 - URL: `https://saltwatersquish.com/api/shopify/order-paid`
+- API version: the same stable version used by the app
+- Event: **Order cancellation**
+- Format: **JSON**
+- URL: `https://saltwatersquish.com/api/shopify/order-cancelled`
 - API version: the same stable version used by the app
 
 Copy the signing secret shown on that Shopify Webhooks page into
