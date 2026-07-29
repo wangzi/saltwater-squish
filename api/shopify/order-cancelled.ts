@@ -110,14 +110,23 @@ async function handler(request: Request) {
   const signature = request.headers.get('x-shopify-hmac-sha256')
   const shopDomain = request.headers.get('x-shopify-shop-domain')?.trim().toLowerCase()
   const topic = request.headers.get('x-shopify-topic')?.trim().toLowerCase()
+  const hasRawBody = rawBody.length > 0
+  const signatureValid = Boolean(signature && hasValidSignature(rawBody, signature, secret))
+  const shopDomainMatches = shopDomain === configuration.storeDomain
+  const topicMatches = topic === 'orders/cancelled'
 
-  if (
-    !rawBody ||
-    !signature ||
-    !hasValidSignature(rawBody, signature, secret) ||
-    shopDomain !== configuration.storeDomain ||
-    topic !== 'orders/cancelled'
-  ) {
+  if (!hasRawBody || !signatureValid || !shopDomainMatches || !topicMatches) {
+    console.warn('Shopify order-cancelled webhook rejected', {
+      bodyBytes: rawBody.length,
+      configuredStoreDomain: configuration.storeDomain,
+      hasSignature: Boolean(signature),
+      secretSource: process.env.SHOPIFY_WEBHOOK_SECRET === undefined ? 'app' : 'webhook',
+      shopDomain,
+      shopDomainMatches,
+      signatureValid,
+      topic,
+      topicMatches,
+    })
     return Response.json({ error: 'Invalid Shopify webhook.' }, { status: 401 })
   }
 
