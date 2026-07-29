@@ -22,7 +22,6 @@ type CatalogProduct = Record<string, unknown> & {
 }
 
 type ShopifyOrder = {
-  financial_status?: string
   id?: number | string
   line_items?: Array<{
     quantity?: number
@@ -104,8 +103,8 @@ async function handler(request: Request) {
 
   const orderId = String(order.id ?? '').trim()
 
-  if (!orderId || order.financial_status !== 'paid') {
-    return Response.json({ error: 'Expected a paid Shopify order.' }, { status: 400 })
+  if (!orderId) {
+    return Response.json({ error: 'Expected a Shopify order ID.' }, { status: 400 })
   }
 
   const receipt = receiptPath(shopDomain, orderId)
