@@ -489,6 +489,11 @@ function normalizeCatalogProducts(response: ProductMediaResponse) {
   return [...blobProducts, ...seedOnlyProducts].sort((left, right) => left.sortOrder - right.sortOrder)
 }
 
+function isProductSoldOut(product: Product) {
+  return product.inventoryQuantity === 0 ||
+    Boolean(product.shopifyVariantId && product.availableForSale === false)
+}
+
 function KineticText({
   lines,
   tone = 'shore',
@@ -2882,7 +2887,8 @@ function App() {
         const resolvedName = productNameFromMedia(product, productMediaByProduct[product.id])
 
         return resolvedName === product.name ? product : { ...product, name: resolvedName }
-      }),
+      })
+      .sort((left, right) => Number(isProductSoldOut(left)) - Number(isProductSoldOut(right))),
     [productMediaByProduct, products],
   )
 
