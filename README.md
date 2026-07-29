@@ -51,8 +51,29 @@ Set these locally or in Vercel:
 SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_VERSION=2026-07
 SHOPIFY_STOREFRONT_PRIVATE_TOKEN=your-private-headless-token
+SHOPIFY_WEBHOOK_SECRET=your-webhook-signing-secret
 ```
 
 The private token is optional for Shopify's tokenless product and cart fields, but recommended
 for authenticated server-side Storefront API requests. Never expose it through a `VITE_*`
 environment variable.
+
+## Shopify Inventory Webhook
+
+The `POST /api/shopify/order-paid` endpoint handles Shopify's `orders/paid` webhook. It matches
+paid line items to product manifests by SKU and decrements each manifest's
+`inventoryQuantity`. Processed orders are recorded in Vercel Blob so Shopify retries do not
+decrement inventory twice.
+
+Configure a store-level webhook in **Shopify Admin → Settings → Notifications → Webhooks**:
+
+- Event: **Order payment**
+- Format: **JSON**
+- URL: `https://saltwatersquish.com/api/shopify/order-paid`
+- API version: the same stable version used by the app
+
+Copy the signing secret shown on that Shopify Webhooks page into
+`SHOPIFY_WEBHOOK_SECRET` in the Vercel project for every deployed environment that receives the
+webhook, then redeploy. App-managed webhooks can use `SHOPIFY_APP_CLIENT_SECRET` instead. Keep
+product SKUs identical in Shopify and the product catalog; webhook line items without a
+matching SKU or a numeric Blob inventory count are reported as skipped.

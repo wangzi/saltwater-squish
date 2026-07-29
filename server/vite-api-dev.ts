@@ -8,6 +8,7 @@ type ApiHandler = (
     body?: unknown
     headers: Record<string, string | string[] | undefined>
     method?: string
+    rawBody?: Buffer
     url?: string
   },
   response: {
@@ -47,23 +48,24 @@ async function readRequestBody(request: IncomingMessage) {
     request.on('error', reject)
   })
 
-  const rawBody = Buffer.concat(chunks).toString()
+  const rawBody = Buffer.concat(chunks)
 
-  if (!rawBody) {
-    return undefined
+  if (rawBody.length === 0) {
+    return { body: undefined, rawBody }
   }
 
   const contentType = request.headers['content-type'] ?? ''
+  const bodyText = rawBody.toString()
 
   if (contentType.includes('application/json')) {
     try {
-      return JSON.parse(rawBody) as unknown
+      return { body: JSON.parse(bodyText) as unknown, rawBody }
     } catch {
-      return rawBody
+      return { body: bodyText, rawBody }
     }
   }
 
-  return rawBody
+  return { body: bodyText, rawBody }
 }
 
 async function runApiHandler(
@@ -81,8 +83,8 @@ async function runApiHandler(
     return
   }
 
-  const body = request.method === 'GET' || request.method === 'HEAD'
-    ? undefined
+  const requestBody = request.method === 'GET' || request.method === 'HEAD'
+    ? { body: undefined, rawBody: undefined }
     : await readRequestBody(request)
 
   let statusCode = 200
@@ -110,9 +112,10 @@ async function runApiHandler(
 
   await handler(
     {
-      body,
+      body: requestBody.body,
       headers: request.headers as Record<string, string | string[] | undefined>,
       method: request.method,
+      rawBody: requestBody.rawBody,
       url: request.url,
     },
     apiResponse,
