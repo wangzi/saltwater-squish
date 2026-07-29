@@ -18,6 +18,10 @@ type ApiHandler = (
   },
 ) => Promise<void> | void
 
+type WebApiHandler = {
+  fetch: (request: Request) => Promise<Response> | Response
+}
+
 function applyEnv(env: Record<string, string>) {
   for (const [key, value] of Object.entries(env)) {
     if (process.env[key] === undefined) {
@@ -74,7 +78,9 @@ async function runApiHandler(
   response: ServerResponse,
   handlerPath: string,
 ) {
-  const handlerModule = await server.ssrLoadModule(handlerPath) as { default?: ApiHandler }
+  const handlerModule = await server.ssrLoadModule(handlerPath) as {
+    default?: ApiHandler | WebApiHandler
+  }
   const handler = handlerModule.default
 
   if (!handler) {
@@ -86,6 +92,32 @@ async function runApiHandler(
   const requestBody = request.method === 'GET' || request.method === 'HEAD'
     ? { body: undefined, rawBody: undefined }
     : await readRequestBody(request)
+
+  if (typeof handler !== 'function') {
+    const headers = new Headers()
+
+    Object.entries(request.headers).forEach(([name, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => headers.append(name, item))
+      } else if (value !== undefined) {
+        headers.set(name, value)
+      }
+    })
+
+    const webResponse = await handler.fetch(new Request(
+      new URL(request.url ?? '/', 'http://127.0.0.1:5173'),
+      {
+        body: requestBody.rawBody,
+        headers,
+        method: request.method,
+      },
+    ))
+
+    response.statusCode = webResponse.status
+    webResponse.headers.forEach((value, name) => response.setHeader(name, value))
+    response.end(Buffer.from(await webResponse.arrayBuffer()))
+    return
+  }
 
   let statusCode = 200
   let hasResponded = false

@@ -13,19 +13,6 @@ declare const process: {
   }
 }
 
-type ApiRequest = {
-  body?: unknown
-  headers: Record<string, string | string[] | undefined>
-  method?: string
-  rawBody?: Buffer
-  [Symbol.asyncIterator]?: () => AsyncIterator<Buffer | string | Uint8Array>
-}
-
-type ApiResponse = {
-  json: (body: unknown) => void
-  status: (code: number) => ApiResponse
-}
-
 type ProductMediaAsset = Record<string, unknown>
 
 type CatalogProduct = Record<string, unknown> & {
@@ -50,35 +37,6 @@ type ShopifyOrder = {
       restock_type?: string
     }>
   }>
-}
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}
-
-function headerValue(request: ApiRequest, name: string) {
-  const value = request.headers[name.toLowerCase()]
-  return Array.isArray(value) ? value[0] : value
-}
-
-async function readRawBody(request: ApiRequest) {
-  if (Buffer.isBuffer(request.rawBody)) {
-    return request.rawBody
-  }
-
-  if (!request[Symbol.asyncIterator]) {
-    return null
-  }
-
-  const chunks: Buffer[] = []
-
-  for await (const chunk of request as AsyncIterable<Buffer | string | Uint8Array>) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  }
-
-  return Buffer.concat(chunks)
 }
 
 function hasValidSignature(rawBody: Buffer, signature: string, secret: string) {
@@ -133,9 +91,9 @@ async function receiptExists(pathname: string) {
   return result.blobs.some((blob) => blob.pathname === pathname)
 }
 
-export default async function handler(request: ApiRequest, response: ApiResponse) {
+async function handler(request: Request) {
   if (request.method !== 'POST') {
-    return response.status(405).json({ error: 'Method not allowed' })
+    return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
   const secret = (
@@ -145,13 +103,13 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   const configuration = getShopifyConfiguration()
 
   if (!secret || !configuration.configured) {
-    return response.status(503).json({ error: 'Shopify webhook is not configured.' })
+    return Response.json({ error: 'Shopify webhook is not configured.' }, { status: 503 })
   }
 
-  const rawBody = await readRawBody(request)
-  const signature = headerValue(request, 'x-shopify-hmac-sha256')
-  const shopDomain = headerValue(request, 'x-shopify-shop-domain')?.trim().toLowerCase()
-  const topic = headerValue(request, 'x-shopify-topic')?.trim().toLowerCase()
+  const rawBody = Buffer.from(await request.arrayBuffer())
+  const signature = request.headers.get('x-shopify-hmac-sha256')
+  const shopDomain = request.headers.get('x-shopify-shop-domain')?.trim().toLowerCase()
+  const topic = request.headers.get('x-shopify-topic')?.trim().toLowerCase()
 
   if (
     !rawBody ||
@@ -160,7 +118,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     shopDomain !== configuration.storeDomain ||
     topic !== 'orders/cancelled'
   ) {
-    return response.status(401).json({ error: 'Invalid Shopify webhook.' })
+    return Response.json({ error: 'Invalid Shopify webhook.' }, { status: 401 })
   }
 
   let order: ShopifyOrder
@@ -168,25 +126,25 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   try {
     order = JSON.parse(rawBody.toString('utf8')) as ShopifyOrder
   } catch {
-    return response.status(400).json({ error: 'Invalid Shopify order payload.' })
+    return Response.json({ error: 'Invalid Shopify order payload.' }, { status: 400 })
   }
 
   const orderId = String(order.id ?? '').trim()
 
   if (!orderId) {
-    return response.status(400).json({ error: 'Expected a cancelled Shopify order.' })
+    return Response.json({ error: 'Expected a cancelled Shopify order.' }, { status: 400 })
   }
 
   const cancellationReceipt = receiptPath('orders-cancelled', shopDomain, orderId)
 
   if (await receiptExists(cancellationReceipt)) {
-    return response.status(200).json({ duplicate: true, ok: true })
+    return Response.json({ duplicate: true, ok: true })
   }
 
   const paymentReceipt = receiptPath('orders-paid', shopDomain, orderId)
 
   if (!(await receiptExists(paymentReceipt))) {
-    return response.status(200).json({
+    return Response.json({
       ignored: true,
       ok: true,
       reason: 'The paid-order webhook did not decrement this order.',
@@ -243,5 +201,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     },
   )
 
-  return response.status(200).json({ ok: true, skipped, updated })
+  return Response.json({ ok: true, skipped, updated })
 }
+
+export default { fetch: handler }
