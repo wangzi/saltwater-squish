@@ -2734,6 +2734,7 @@ button.film-play-badge {
 
 .checkout-button {
   width: 100%;
+  height: 46px;
 }
 
 .checkout-button:disabled {
