@@ -60,27 +60,34 @@ environment variable.
 
 ## Shopify Inventory Webhook
 
-The `POST /api/shopify/order-paid` endpoint handles Shopify's `orders/paid` webhook. It matches
-paid line items to product manifests by SKU and decrements each manifest's
-`inventoryQuantity`. The `POST /api/shopify/order-cancelled` endpoint restores quantities from
-cancelled-order refund lines whose `restock_type` is `cancel`, `return`, or `legacy_restock`.
-It ignores orders that were not previously processed by the paid-order webhook. Processed
-events are recorded in Vercel Blob so Shopify retries do not adjust inventory twice.
+The `POST /api/shopify/inventory-levels-update` endpoint handles Shopify's
+`inventory_levels/update` webhook. It looks up the changed inventory item through the Shopify
+Admin API, totals its available quantity across locations, matches its SKU to a product
+manifest, and writes that absolute quantity to Vercel Blob. This covers inventory changes made
+in Shopify Admin as well as purchases, returns, and cancellations. Processed webhook IDs are
+recorded in Vercel Blob so Shopify retries do not repeat the write.
 
-Configure two store-level webhooks in
+Create an app in the [Shopify Dev Dashboard](https://dev.shopify.com/dashboard/). Under
+**Versions**, create and release a version with the `read_inventory` Admin API scope, then
+install the app on the store. Copy the app's **Client ID** and **Secret** from its **Settings**
+page into `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` in Vercel. The webhook exchanges these
+credentials for a short-lived Admin API token and refreshes it automatically.
+
+Then configure one store-level webhook in
 **Shopify Admin → Settings → Notifications → Webhooks**:
 
-- Event: **Order payment**
+- Event: **Inventory level update**
 - Format: **JSON**
-- URL: `https://saltwatersquish.com/api/shopify/order-paid`
-- API version: the same stable version used by the app
-- Event: **Order cancellation**
-- Format: **JSON**
-- URL: `https://saltwatersquish.com/api/shopify/order-cancelled`
+- URL: `https://saltwatersquish.com/api/shopify/inventory-levels-update`
 - API version: the same stable version used by the app
 
 Copy the signing secret shown on that Shopify Webhooks page into
 `SHOPIFY_WEBHOOK_SECRET` in the Vercel project for every deployed environment that receives the
 webhook, then redeploy. App-managed webhooks can use `SHOPIFY_APP_CLIENT_SECRET` instead. Keep
-product SKUs identical in Shopify and the product catalog; webhook line items without a
-matching SKU or a numeric Blob inventory count are reported as skipped.
+product SKUs identical in Shopify and the product catalog; inventory items without a matching
+SKU are reported as skipped.
+
+Remove the old **Order payment** and **Order cancellation** webhook subscriptions after the
+inventory-level webhook is active. Their endpoints remain available as a fallback, but they
+apply quantity deltas and must not run alongside the absolute inventory-level sync or stock can
+be adjusted twice.
