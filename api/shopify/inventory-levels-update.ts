@@ -8,8 +8,9 @@ import { getShopifyConfiguration } from '../../server/shopify.js'
 
 declare const process: {
   env: {
-    SHOPIFY_ADMIN_ACCESS_TOKEN?: string
     SHOPIFY_APP_CLIENT_SECRET?: string
+    SHOPIFY_CLIENT_ID?: string
+    SHOPIFY_CLIENT_SECRET?: string
     SHOPIFY_WEBHOOK_SECRET?: string
   }
 }
@@ -46,6 +47,11 @@ type ShopifyInventoryItemResponse = {
   errors?: Array<{ message?: string }>
 }
 
+type ShopifyAccessTokenResponse = {
+  access_token?: string
+  expires_in?: number
+}
+
 const inventoryItemQuery = `
   query InventoryItemForWebhook($id: ID!) {
     inventoryItem(id: $id) {
@@ -65,6 +71,9 @@ const inventoryItemQuery = `
   }
 `
 
+let cachedAccessToken: { expiresAt: number; value: string } | null = null
+let pendingAccessToken: Promise<string> | null = null
+
 function hasValidSignature(rawBody: Buffer, signature: string, secret: string) {
   const received = Buffer.from(signature, 'base64')
   const expected = createHmac('sha256', secret).update(rawBody).digest()
@@ -83,13 +92,69 @@ async function receiptExists(pathname: string) {
   return result.blobs.some((blob) => blob.pathname === pathname)
 }
 
+async function requestShopifyAdminAccessToken() {
+  const configuration = getShopifyConfiguration()
+  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim()
+  const clientSecret = (
+    process.env.SHOPIFY_CLIENT_SECRET ??
+    process.env.SHOPIFY_APP_CLIENT_SECRET
+  )?.trim()
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Shopify client credentials are not configured.')
+  }
+
+  const response = await fetch(
+    `https://${configuration.storeDomain}/admin/oauth/access_token`,
+    {
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'client_credentials',
+      }),
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      method: 'POST',
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as ShopifyAccessTokenResponse | null
+  const accessToken = payload?.access_token?.trim()
+
+  if (!response.ok || !accessToken) {
+    throw new Error(`Shopify token request failed with HTTP ${response.status}.`)
+  }
+
+  const lifetimeSeconds = typeof payload?.expires_in === 'number'
+    ? payload.expires_in
+    : 86_399
+
+  cachedAccessToken = {
+    expiresAt: Date.now() + Math.max(60, lifetimeSeconds - 60) * 1000,
+    value: accessToken,
+  }
+
+  return accessToken
+}
+
+async function getShopifyAdminAccessToken() {
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
+    return cachedAccessToken.value
+  }
+
+  if (!pendingAccessToken) {
+    pendingAccessToken = requestShopifyAdminAccessToken().finally(() => {
+      pendingAccessToken = null
+    })
+  }
+
+  return pendingAccessToken
+}
+
 async function getInventoryItem(inventoryItemId: string) {
   const configuration = getShopifyConfiguration()
-  const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN?.trim()
-
-  if (!accessToken) {
-    throw new Error('SHOPIFY_ADMIN_ACCESS_TOKEN is not configured.')
-  }
+  const accessToken = await getShopifyAdminAccessToken()
 
   const response = await fetch(
     `https://${configuration.storeDomain}/admin/api/${configuration.apiVersion}/graphql.json`,
@@ -151,12 +216,17 @@ async function handler(request: Request) {
 
   const secret = (
     process.env.SHOPIFY_WEBHOOK_SECRET ??
+    process.env.SHOPIFY_CLIENT_SECRET ??
     process.env.SHOPIFY_APP_CLIENT_SECRET
   )?.trim()
   const configuration = getShopifyConfiguration()
-  const adminAccessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN?.trim()
+  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim()
+  const clientSecret = (
+    process.env.SHOPIFY_CLIENT_SECRET ??
+    process.env.SHOPIFY_APP_CLIENT_SECRET
+  )?.trim()
 
-  if (!secret || !configuration.configured || !adminAccessToken) {
+  if (!secret || !configuration.configured || !clientId || !clientSecret) {
     return Response.json({ error: 'Shopify inventory webhook is not configured.' }, { status: 503 })
   }
 
