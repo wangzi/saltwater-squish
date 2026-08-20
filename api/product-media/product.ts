@@ -76,11 +76,10 @@ function cleanName(value: unknown) {
 
 const allowedCategories = new Set([
   'Slow rise',
-  'Sugar coated',
-  'Coconut oil',
   'Vaseline',
-  'Handpicked',
-  'NorCal made',
+  'Coconut oil',
+  'Crunchy',
+  'Slushy',
 ])
 
 function cleanCategories(value: unknown) {
