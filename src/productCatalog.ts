@@ -303,6 +303,22 @@ export const catalogProducts: CatalogProduct[] = [
     subtitle: 'Color Change Lime',
     tag: 'Crunchy',
   },
+  {
+    aliases: ['crunchy color changing mango', 'color changing mango', 'color changing mango squishy'],
+    categories: ['Crunchy'],
+    collection: 'Crunchy',
+    description: 'A mango-orange crunchy squishy that shifts color as it warms in your hands.',
+    feel: 'Crunchy',
+    id: 'crunchy-color-changing-mango',
+    imagePosition: [0, 0],
+    name: 'Crunchy Color Changing Mango',
+    price: null,
+    sku: 'SWS-CCM-MNG',
+    sortOrder: 190,
+    status: 'published',
+    subtitle: 'Color Changing Mango',
+    tag: 'Crunchy',
+  },
 ]
 
 function normalizedAlias(value: string) {
